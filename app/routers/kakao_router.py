@@ -203,19 +203,38 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
             await db.commit()
             await db.refresh(run)
 
+            # 다음 강화 확률 및 검 가치(판매가, 변환포인트) 계산 (파괴되지 않았을 때)
+            info_str = ""
+            if result != "destroy":
+                cur_sword = run.swords[sword_idx]
+                sell_p = GameEngine.calculate_sell_price(cur_sword, run.relics or [])
+                relic_p = GameEngine.calculate_relic_points(cur_sword)
+
+                next_probs = GameEngine.calculate_enhance_probabilities(
+                    details["to_level"], run.relics or [], run.boost or 0
+                )
+                p_s = int(next_probs["success"] * 100)
+                p_gs = int(next_probs["great_success"] * 100)
+                p_k = int(next_probs["keep"] * 100)
+                p_d = int(next_probs["destroy"] * 100)
+                info_str = (
+                    f"\n\n💰 판매가: {sell_p:,}G | 🔮 변환: {relic_p}pt\n"
+                    f"📊 [다음 강화 확률]\n성공 {p_s}% | 대성공 {p_gs}% | 유지 {p_k}% | 파괴 {p_d}%"
+                )
+
             # 결과 카드 문구
             if result == "success":
                 title = f"✨ 강화 성공! (+{details['to_level']}강)"
-                desc = f"+{prev_level}강에서 +{details['to_level']}강으로 상승했습니다!"
+                desc = f"+{prev_level}강에서 +{details['to_level']}강으로 상승했습니다!{info_str}"
             elif result == "great_success":
                 title = f"💥 대성공 폭발! (+{details['to_level']}강)"
-                desc = f"엄청난 기운으로 레벨이 대폭 상승했습니다! (+{prev_level} → +{details['to_level']})"
+                desc = f"엄청난 기운으로 레벨이 대폭 상승했습니다! (+{prev_level} → +{details['to_level']}){info_str}"
             elif result == "keep":
                 title = "🛡️ 강화 유지"
                 if details.get("protected_by"):
-                    desc = f"파괴 위험이었으나 [{details['protected_by']}] 효과로 검을 지켰습니다!"
+                    desc = f"파괴 위험이었으나 [{details['protected_by']}] 효과로 검을 지켰습니다!{info_str}"
                 else:
-                    desc = f"아쉽게도 레벨에 변화가 없습니다. (+{prev_level}강 유지)"
+                    desc = f"아쉽게도 레벨에 변화가 없습니다. (+{prev_level}강 유지){info_str}"
             else: # destroy
                 if len(run.swords) == 0:
                     title = "💥 콰앙! 마지막 검이 파괴되었습니다..."
