@@ -1,0 +1,143 @@
+{
+  "game_rules": {
+    "max_round": 10,
+    "starting_gold": 0,
+    "swords_per_round": 3,
+    "relic_slots": 4,
+    "target_gold_base": 800,
+    "target_gold_multiplier": 1.55,
+    "shop_price_multiplier": 1.4
+  },
+  "enhance_base_weights": {
+    "destroy_base": 0.0,
+    "destroy_per_level": 0.03,
+    "destroy_max": 0.4,
+    "success_base": 0.8,
+    "success_per_level_reduction": 0.045,
+    "success_min": 0.2,
+    "great_success_fixed": 0.07,
+    "keep_fixed": 0.12
+  },
+  "sword_types": {
+    "normal": {
+      "name": "기본 검",
+      "base_price": 100,
+      "price_multiplier": 1.6,
+      "shop_price": 300,
+      "base_relic_points": 1,
+      "relic_points_per_5_levels": 1
+    },
+    "stick": {
+      "name": "나뭇가지",
+      "base_price": 50,
+      "price_multiplier": 1.5,
+      "shop_price": 100,
+      "base_relic_points": 0,
+      "relic_points_per_5_levels": 1
+    },
+    "skewer": {
+      "name": "꼬챙이",
+      "base_price": 120,
+      "price_multiplier": 1.65,
+      "shop_price": 500,
+      "base_relic_points": 1,
+      "relic_points_per_5_levels": 1
+    }
+  },
+  "relics": [
+    {
+      "id": "twin_rune",
+      "name": "쌍날 룬",
+      "point_cost": 1,
+      "description": "대성공 확률 +5%p",
+      "effect": { "type": "great_success_rate_add", "value": 0.05 }
+    },
+    {
+      "id": "tenacious_grip",
+      "name": "끈질긴 손잡이",
+      "point_cost": 2,
+      "description": "유지 시 다음 대성공 확률 +15%p (최대 +30%p)",
+      "effect": { "type": "keep_to_great_success_stack", "value_per_stack": 0.15, "max_value": 0.30 }
+    },
+    {
+      "id": "merchants_tongue",
+      "name": "상인의 혀",
+      "point_cost": 2,
+      "description": "판매가 +20%",
+      "effect": { "type": "sell_price_multiplier", "value": 1.20 }
+    },
+    {
+      "id": "lucky_clover",
+      "name": "행운의 클로버",
+      "point_cost": 3,
+      "description": "성공 확률 +6%p",
+      "effect": { "type": "success_rate_add", "value": 0.06 }
+    },
+    {
+      "id": "shield_charm",
+      "name": "방패 부적",
+      "point_cost": 3,
+      "description": "파괴 확률 -30%",
+      "effect": { "type": "destroy_rate_multiplier", "value": 0.70 }
+    },
+    {
+      "id": "guardians_grace",
+      "name": "수호의 가호",
+      "point_cost": 4,
+      "description": "라운드마다 파괴 1회 방어",
+      "effect": { "type": "destroy_block_per_round", "count": 1 }
+    },
+    {
+      "id": "blacksmith_soul",
+      "name": "대장장이의 혼",
+      "point_cost": 5,
+      "description": "대성공 시 +1 추가 (총 +3)",
+      "effect": { "type": "great_success_bonus_levels", "value": 1 }
+    }
+  ],
+  "shop_items": [
+    {
+      "id": "sword_normal",
+      "name": "기본 검",
+      "base_price": 300,
+      "type": "sword",
+      "target_id": "normal"
+    },
+    {
+      "id": "sword_stick",
+      "name": "나뭇가지",
+      "base_price": 100,
+      "type": "sword",
+      "target_id": "stick"
+    },
+    {
+      "id": "sword_skewer",
+      "name": "꼬챙이",
+      "base_price": 500,
+      "type": "sword",
+      "target_id": "skewer"
+    },
+    {
+      "id": "protect_destroy",
+      "name": "파괴 방지 부적",
+      "base_price": 600,
+      "type": "consumable",
+      "description": "다음 강화 실패로 파괴 시 유지로 막아줍니다."
+    },
+    {
+      "id": "revert_destroy",
+      "name": "파괴 되돌리기 주문서",
+      "base_price": 1200,
+      "type": "consumable",
+      "description": "검 파괴 시 직전 강화 레벨로 복구합니다."
+    }
+  ],
+  "sword_ranks": [
+    { "min_level": 0, "name": "녹슨 단검", "rank_name": "일반", "color": "#A0A0A0" },
+    { "min_level": 3, "name": "강철 장검", "rank_name": "고급", "color": "#2ECC71" },
+    { "min_level": 6, "name": "미스릴 검", "rank_name": "희귀", "color": "#3498DB" },
+    { "min_level": 9, "name": "룬 블레이드", "rank_name": "영웅", "color": "#9B59B6" },
+    { "min_level": 12, "name": "용살검", "rank_name": "전설", "color": "#F39C12" },
+    { "min_level": 15, "name": "신화의 성검", "rank_name": "신화", "color": "#E74C3C" }
+  ]
+}
