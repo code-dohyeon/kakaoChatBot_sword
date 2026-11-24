@@ -343,8 +343,10 @@ async def revert_destroyed_sword(payload: Dict[str, Any] = Body(...), db: AsyncS
 
 @router.post("/round-finish")
 async def finish_round(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
-    """납품 및 라운드 마감"""
+    """납품 및 라운드 마감 (확인 및 최종 마감 분기)"""
     user_key = get_user_key(payload)
+    utterance = get_utterance(payload)
+
     async with UserLockManager.acquire(user_key, timeout=0.3) as acquired:
         if not acquired:
             return KakaoResponseBuilder.simple_text("⚡ 이전 요청을 처리 중입니다! 잠시 후 다시 시도해주세요.")
@@ -355,6 +357,46 @@ async def finish_round(payload: Dict[str, Any] = Body(...), db: AsyncSession = D
         if not run or run.status != "playing":
             return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다.")
 
+        target_gold = GameEngine.get_target_gold_for_round(run.round)
+        sales_gold = getattr(run, "round_sales_gold", 0) or 0
+        is_confirm = "확정" in utterance or "진짜납품" in utterance or "지금 납품하기" in utterance or "그래도 마감" in utterance
+
+        # 1단계: 마감 확인 단계 (사용자가 '납품·마감'을 처음 눌렀을 때)
+        if not is_confirm:
+            if sales_gold >= target_gold:
+                title = f"📦 R{run.round} 납품 준비 완료!"
+                desc = (
+                    f"이번 라운드 목표를 달성했습니다!\n\n"
+                    f"• 이번 라운드 판매 수익: {sales_gold:,}G\n"
+                    f"• 이번 라운드 목표 골드: {target_gold:,}G\n"
+                    f"• 현재 소지금: {run.gold:,}G\n\n"
+                    f"지금 마감하고 다음 라운드로 진행하시겠습니까?\n"
+                    f"(납품 시 소지금은 차감되지 않습니다)"
+                )
+                buttons = [
+                    {"action": "message", "label": "🚀 지금 납품하기", "messageText": "지금 납품하기"},
+                    {"action": "message", "label": "⚔️ 더 강화하기", "messageText": "강화하기"},
+                    {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
+                ]
+            else:
+                deficit = target_gold - sales_gold
+                title = f"⚠️ R{run.round} 목표 골드 부족 경고!"
+                desc = (
+                    f"아직 목표 골드에 도달하지 못했습니다!\n\n"
+                    f"• 이번 라운드 판매 수익: {sales_gold:,}G\n"
+                    f"• 이번 라운드 목표 골드: {target_gold:,}G\n"
+                    f"• 부족한 금액: {deficit:,}G\n\n"
+                    f"🚨 이대로 마감하면 [게임 오버]됩니다!\n"
+                    f"보유한 검을 더 강화해서 판매하거나 새 검을 구매하세요."
+                )
+                buttons = [
+                    {"action": "message", "label": "🗡️ 검 판매하러 가기", "messageText": "내 검 보기"},
+                    {"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"},
+                    {"action": "message", "label": "💀 그래도 마감", "messageText": "그래도 마감"}
+                ]
+            return KakaoResponseBuilder.basic_card(title=title, description=desc, buttons=buttons)
+
+        # 2단계: 최종 납품 실행
         success, msg = await RunService.advance_round(db, run)
         if not success:
             return KakaoResponseBuilder.basic_card(
@@ -372,11 +414,10 @@ async def finish_round(payload: Dict[str, Any] = Body(...), db: AsyncSession = D
                 ]
             )
         else:
-            target_gold = GameEngine.get_target_gold_for_round(run.round)
-            sales_gold = getattr(run, "round_sales_gold", 0) or 0
+            next_target_gold = GameEngine.get_target_gold_for_round(run.round)
             desc = (
                 f"{msg}\n"
-                f"• 이번 라운드 목표: {target_gold:,}G (현재 판매 수익: {sales_gold:,}G)\n"
+                f"• 새로운 목표: {next_target_gold:,}G\n"
                 f"• 현재 소지금: {run.gold:,}G"
             )
             return KakaoResponseBuilder.basic_card(
