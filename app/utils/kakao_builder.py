@@ -16,13 +16,7 @@ class KakaoResponseBuilder:
         return {
             "version": "2.0",
             "template": {
-                "outputs": [
-                    {
-                        "simpleText": {
-                            "text": text
-                        }
-                    }
-                ],
+                "outputs": [{"simpleText": {"text": text}}],
                 "quickReplies": replies
             }
         }
@@ -37,7 +31,7 @@ class KakaoResponseBuilder:
     ) -> Dict[str, Any]:
         replies = quick_replies if quick_replies is not None else DEFAULT_QUICK_REPLIES
 
-        # 썸네일 이미지가 제공된 경우 -> basicCard
+        # 썸네일이 있으면 800x800 규격의 basicCard, 없으면 카카오 규격 textCard
         if thumbnail_url:
             card: Dict[str, Any] = {
                 "title": title,
@@ -47,13 +41,12 @@ class KakaoResponseBuilder:
                     "fixedRatio": True,
                     "width": 800,
                     "height": 800
-                    }
+                }
             }
             if buttons:
                 card["buttons"] = buttons
             output = {"basicCard": card}
         else:
-            # 썸네일 이미지가 없는 경우 -> 카카오 규격 textCard (2461 에러 원천 차단)
             card: Dict[str, Any] = {
                 "title": title,
                 "description": description
@@ -76,6 +69,14 @@ class KakaoResponseBuilder:
         quick_replies: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         replies = quick_replies if quick_replies is not None else DEFAULT_QUICK_REPLIES
+        
+        # 캐러셀 내부의 모든 카드 썸네일도 800x800 규격으로 자동 보정
+        for item in card_items:
+            if "thumbnail" in item and item["thumbnail"]:
+                item["thumbnail"]["fixedRatio"] = True
+                item["thumbnail"]["width"] = 800
+                item["thumbnail"]["height"] = 800
+
         return {
             "version": "2.0",
             "template": {
@@ -87,21 +88,6 @@ class KakaoResponseBuilder:
                         }
                     }
                 ],
-                "quickReplies": replies
-            }
-        }
-
-    @staticmethod
-    def multi_card_response(
-        outputs: List[Dict[str, Any]],
-        quick_replies: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
-        """말풍선 2~3개 분할 응답 지원"""
-        replies = quick_replies if quick_replies is not None else DEFAULT_QUICK_REPLIES
-        return {
-            "version": "2.0",
-            "template": {
-                "outputs": outputs,
                 "quickReplies": replies
             }
         }

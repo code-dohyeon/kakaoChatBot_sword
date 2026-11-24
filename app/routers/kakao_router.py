@@ -10,6 +10,7 @@ from app.utils.image_helper import get_sword_image_url
 from app.models.game import EnhanceLog
 from app.utils.lock_manager import UserLockManager
 from typing import Dict, Any
+from sqlalchemy.orm.attributes import flag_modified # 상단에 import
 
 router = APIRouter(prefix="/api/kakao", tags=["kakao"])
 
@@ -110,7 +111,12 @@ async def view_my_swords(payload: Dict[str, Any] = Body(...), db: AsyncSession =
             ]
         }
         if img_url:
-            card_item["thumbnail"] = {"imageUrl": img_url}
+            card_item["thumbnail"] = {
+                "imageUrl": img_url,
+                "fixedRatio": True,
+                "width": 800,
+                "height": 800
+                }
         cards.append(card_item)
 
     return KakaoResponseBuilder.carousel(cards[:5]) # 카카오 캐러셀 최대 5개
@@ -237,6 +243,8 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
                     buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"})
 
             result_img_url = get_sword_image_url(details["to_level"]) if result != "destroy" else None
+            flag_modified(run, "swords")
+            
             return KakaoResponseBuilder.basic_card(
                 title=title,
                 description=desc,
