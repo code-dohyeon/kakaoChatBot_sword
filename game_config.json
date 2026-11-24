@@ -5,15 +5,15 @@
     "swords_per_round": 3,
     "relic_slots": 4,
     "target_gold_base": 800,
-    "target_gold_multiplier": 1.55,
+    "target_gold_multiplier": 1.63,
     "shop_price_multiplier": 1.4
   },
   "enhance_base_weights": {
     "destroy_base": 0.0,
-    "destroy_per_level": 0.03,
-    "destroy_max": 0.4,
+    "destroy_per_level": 0.035,
+    "destroy_max": 0.44,
     "success_base": 0.8,
-    "success_per_level_reduction": 0.045,
+    "success_per_level_reduction": 0.048,
     "success_min": 0.2,
     "great_success_fixed": 0.07,
     "keep_fixed": 0.12
