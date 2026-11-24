@@ -8,7 +8,7 @@ ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
 
 def get_sword_image_url(level: int) -> Optional[str]:
     """
-    upgrade_{level}.png 또는 upgrade_{type}_{level}.png 형식 매핑
+    upgrade_{level}.png 형식 매핑
     실제 파일이 존재하거나 기본 URL 형식으로 반환
     """
     filename = f"upgrade_{level}.png"

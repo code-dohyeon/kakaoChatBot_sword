@@ -100,16 +100,18 @@ async def view_my_swords(payload: Dict[str, Any] = Body(...), db: AsyncSession =
             f"유지 {int(probs['keep']*100)}% / 파괴 {int(probs['destroy']*100)}%"
         )
         img_url = get_sword_image_url(lvl)
-        cards.append({
+        card_item = {
             "title": f"[{idx+1}번 검] +{lvl}",
             "description": desc,
-            "thumbnail": {"imageUrl": img_url} if img_url else None,
             "buttons": [
                 {"action": "message", "label": f"{idx+1}번 검 강화", "messageText": f"{idx+1}번 강화"},
                 {"action": "message", "label": f"{idx+1}번 판매", "messageText": f"{idx+1}번 판매"},
                 {"action": "message", "label": f"{idx+1}번 변환", "messageText": f"{idx+1}번 변환"}
             ]
-        })
+        }
+        if img_url:
+            card_item["thumbnail"] = {"imageUrl": img_url}
+        cards.append(card_item)
 
     return KakaoResponseBuilder.carousel(cards[:5]) # 카카오 캐러셀 최대 5개
 

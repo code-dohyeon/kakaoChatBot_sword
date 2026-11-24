@@ -36,23 +36,36 @@ class KakaoResponseBuilder:
         quick_replies: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         replies = quick_replies if quick_replies is not None else DEFAULT_QUICK_REPLIES
-        card: Dict[str, Any] = {
-            "title": title,
-            "description": description
-        }
+
+        # 썸네일 이미지가 제공된 경우 -> basicCard
         if thumbnail_url:
-            card["thumbnail"] = {"imageUrl": thumbnail_url}
-        if buttons:
-            card["buttons"] = buttons
+            card: Dict[str, Any] = {
+                "title": title,
+                "description": description,
+                "thumbnail": {
+                    "imageUrl": thumbnail_url,
+                    "fixedRatio": True,
+                    "width": 800,
+                    "height": 800
+                    }
+            }
+            if buttons:
+                card["buttons"] = buttons
+            output = {"basicCard": card}
+        else:
+            # 썸네일 이미지가 없는 경우 -> 카카오 규격 textCard (2461 에러 원천 차단)
+            card: Dict[str, Any] = {
+                "title": title,
+                "description": description
+            }
+            if buttons:
+                card["buttons"] = buttons
+            output = {"textCard": card}
 
         return {
             "version": "2.0",
             "template": {
-                "outputs": [
-                    {
-                        "basicCard": card
-                    }
-                ],
+                "outputs": [output],
                 "quickReplies": replies
             }
         }
