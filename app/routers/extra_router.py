@@ -121,9 +121,6 @@ async def view_shop(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depe
         return await view_relics(payload, db)
     elif utterance.startswith("유물구매"):
         return await buy_relic(payload, db)
-    elif utterance == "골드상점":
-        # 골드 상점 품목만 바로 보기
-        pass
 
     user_key = get_user_key(payload)
     user = await RunService.get_or_create_user(db, user_key)
@@ -134,28 +131,12 @@ async def view_shop(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depe
 
     round_mult = (config.rules.get("shop_price_multiplier", 1.4) ** (run.round - 1))
 
-    # 상점 품목 캐러셀 카드 (첫 카드로 유물 상점 바로가기 배치!)
+    # [일반 상점]: 골드로 구매하는 소모품 및 검 품목들만 깔끔하게 노출
     cards = []
-    
-    # 1. 유물 상점 입장 카드 (1순위 배치)
-    relic_summary = (
-        f"• 보유 유물 포인트: {run.relic_points}pt\n"
-        f"• 장착 유물 슬롯: {len(run.relics or [])}/{config.rules.get('relic_slots', 4)}개\n"
-        f"검을 [변환]해 얻은 포인트로 영구 패시브 유물을 구매하세요!"
-    )
-    cards.append({
-        "title": "🏺 유물 상점 (포인트 전용)",
-        "description": relic_summary,
-        "buttons": [
-            {"action": "message", "label": "🏺 유물 보러가기", "messageText": "유물보기"}
-        ]
-    })
-
-    # 2. 골드 상점 품목들
     for item in config.shop_items.values():
         price = int(item["base_price"] * round_mult)
         item_desc = item.get("description", "추가 검을 구매합니다.")
-        desc = f"가격: {price:,}G (현재 골드: {run.gold:,}G)\n효과: {item_desc}"
+        desc = f"가격: {price:,}G (보유 골드: {run.gold:,}G)\n효과: {item_desc}"
         cards.append({
             "title": f"🏪 {item['name']}",
             "description": desc,
