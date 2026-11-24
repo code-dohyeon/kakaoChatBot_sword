@@ -9,6 +9,7 @@ from app.core.config import config
 from app.models.game import User, Ranking, Friend
 from app.routers.kakao_router import get_user_key, get_utterance
 from app.utils.lock_manager import UserLockManager
+from sqlalchemy.orm.attributes import flag_modified
 from typing import Dict, Any
 
 router = APIRouter(prefix="/api/kakao", tags=["kakao_extra"])
@@ -52,7 +53,10 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
             swords = list(run.swords)
             swords.pop(sword_idx)
             run.swords = swords
+            flag_modified(run, "swords")
+            db.add(run)
             await db.commit()
+            await db.refresh(run)
 
             target_gold = GameEngine.get_target_gold_for_round(run.round)
             desc = (
@@ -81,7 +85,10 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
             swords = list(run.swords)
             swords.pop(sword_idx)
             run.swords = swords
+            flag_modified(run, "swords")
+            db.add(run)
             await db.commit()
+            await db.refresh(run)
 
             desc = (
                 f"+{lvl}강 검을 신비한 기운으로 변환하여 유물 포인트 {pt_gain}pt를 획득했습니다!\n"

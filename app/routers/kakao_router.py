@@ -185,6 +185,11 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
             s_type = run.swords[sword_idx].get("type", "normal")
             result, details = GameEngine.enhance_sword(run, sword_idx)
 
+            # [수정] run.swords 변경사항을 DB 세션에 확실히 반영
+            flag_modified(run, "swords")
+            flag_modified(run, "items")
+            db.add(run)
+
             # 로그 저장
             log = EnhanceLog(
                 user_id=user.id,
@@ -196,6 +201,7 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
             )
             db.add(log)
             await db.commit()
+            await db.refresh(run)
 
             # 결과 카드 문구
             if result == "success":

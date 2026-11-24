@@ -120,6 +120,9 @@ class GameEngine:
                 to_level = 0
                 run.boost = 0
 
+        # swords 리스트를 새 객체로 복사 재할당 (SQLAlchemy JSON 변경 강제 감지)
+        run.swords = [dict(s) for s in run.swords]
+
         details = {
             "result": result,
             "from_level": prev_level,
