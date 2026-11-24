@@ -27,6 +27,7 @@ class Run(Base):
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, index=True, nullable=False)
     round = Column(Integer, default=1)
     gold = Column(Integer, default=0)
+    round_sales_gold = Column(Integer, default=0) # 해당 라운드 동안 검을 팔아서 번 누적 골드
     relic_points = Column(Integer, default=0)
     
     # JSON 컬럼

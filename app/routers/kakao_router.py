@@ -373,7 +373,12 @@ async def finish_round(payload: Dict[str, Any] = Body(...), db: AsyncSession = D
             )
         else:
             target_gold = GameEngine.get_target_gold_for_round(run.round)
-            desc = f"{msg}\n• 보유 골드: {run.gold:,}G\n• R{run.round} 목표 골드: {target_gold:,}G"
+            sales_gold = getattr(run, "round_sales_gold", 0) or 0
+            desc = (
+                f"{msg}\n"
+                f"• 이번 라운드 목표: {target_gold:,}G (현재 판매 수익: {sales_gold:,}G)\n"
+                f"• 현재 소지금: {run.gold:,}G"
+            )
             return KakaoResponseBuilder.basic_card(
                 title=f"📦 R{run.round} 라운드 진입",
                 description=desc,

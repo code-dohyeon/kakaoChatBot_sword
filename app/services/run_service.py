@@ -48,6 +48,7 @@ class RunService:
             user_id=user_id,
             round=1,
             gold=config.rules.get("starting_gold", 0),
+            round_sales_gold=0,
             relic_points=0,
             swords=starting_swords,
             items=[],
@@ -64,14 +65,16 @@ class RunService:
 
     @classmethod
     async def advance_round(cls, db: AsyncSession, run: Run) -> Tuple[bool, str]:
-        """라운드 납품/마감 처리"""
+        """라운드 납품/마감 처리 (해당 라운드 검 판매 수익 기준)"""
         target_gold = GameEngine.get_target_gold_for_round(run.round)
-        if run.gold < target_gold:
+        sales_gold = getattr(run, "round_sales_gold", 0) or 0
+
+        if sales_gold < target_gold:
             # 실패: 게임 오버
             run.status = "failed"
             await cls._record_run_end(db, run, "failed")
             await db.commit()
-            return False, f"목표 골드({target_gold:,}G)가 부족하여 납품에 실패했습니다. (보유: {run.gold:,}G)"
+            return False, f"이번 라운드 검 판매 수익({sales_gold:,}G)이 목표 골드({target_gold:,}G)에 부족하여 납품에 실패했습니다. (소지금: {run.gold:,}G)"
 
         # 10라운드 클리어 체크
         if run.round >= config.rules.get("max_round", 10):
@@ -82,6 +85,7 @@ class RunService:
 
         # 다음 라운드 진행
         run.round += 1
+        run.round_sales_gold = 0 # 다음 라운드 판매 수익 초기화
         # 검 지급 (기존 검에 누적)
         current_swords = list(run.swords or [])
         start_id = max([s.get("id", 0) for s in current_swords], default=0) + 1

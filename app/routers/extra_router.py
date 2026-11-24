@@ -50,6 +50,7 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
         if is_sell:
             gold_gain = GameEngine.calculate_sell_price(target_sword, run.relics or [])
             run.gold += gold_gain
+            run.round_sales_gold = (getattr(run, 'round_sales_gold', 0) or 0) + gold_gain
             swords = list(run.swords)
             swords.pop(sword_idx)
             run.swords = swords
@@ -59,9 +60,11 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
             await db.refresh(run)
 
             target_gold = GameEngine.get_target_gold_for_round(run.round)
+            sales_gold = getattr(run, 'round_sales_gold', 0) or 0
             desc = (
                 f"+{lvl}강 검을 판매하여 {gold_gain:,}G를 획득했습니다!\n"
-                f"• 보유 골드: {run.gold:,}G / 이번 목표: {target_gold:,}G\n"
+                f"• 이번 라운드 판매 수익: {sales_gold:,}G / 목표: {target_gold:,}G\n"
+                f"• 현재 소지금: {run.gold:,}G\n"
                 f"• 남은 검: {len(run.swords)}개"
             )
             buttons = []
@@ -69,7 +72,7 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
                 buttons.append({"action": "message", "label": "🗡️ 남은 검 보기", "messageText": "내 검 보기"})
                 buttons.append({"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"})
             else:
-                if run.gold >= target_gold:
+                if sales_gold >= target_gold:
                     buttons.append({"action": "message", "label": "📦 납품·마감", "messageText": "납품·마감"})
                 buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"})
 
