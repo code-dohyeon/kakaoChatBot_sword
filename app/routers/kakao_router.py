@@ -99,7 +99,7 @@ async def view_my_swords(payload: Dict[str, Any] = Body(...), db: AsyncSession =
             f"확률: 성 {int(probs['success']*100)}% / 대성 {int(probs['great_success']*100)}% / "
             f"유지 {int(probs['keep']*100)}% / 파괴 {int(probs['destroy']*100)}%"
         )
-        img_url = get_sword_image_url(lvl, s_type)
+        img_url = get_sword_image_url(lvl)
         cards.append({
             "title": f"[{idx+1}번 검] +{lvl} {type_name}",
             "description": desc,
