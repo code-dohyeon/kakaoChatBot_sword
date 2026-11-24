@@ -101,7 +101,7 @@ async def view_my_swords(payload: Dict[str, Any] = Body(...), db: AsyncSession =
         )
         img_url = get_sword_image_url(lvl)
         cards.append({
-            "title": f"[{idx+1}번 검] +{lvl} {type_name}",
+            "title": f"[{idx+1}번 검] +{lvl}",
             "description": desc,
             "thumbnail": {"imageUrl": img_url} if img_url else None,
             "buttons": [
