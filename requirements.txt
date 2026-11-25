@@ -6,4 +6,5 @@ greenlet>=3.0.0
 aiosqlite>=0.20.0
 httpx>=0.28.0
 python-dotenv>=1.0.0
-asyncpg>=0.30.0; sys_platform != "win32"
+asyncpg>=0.30.0; platform_system != 'Windows'
+psycopg2-binary>=2.9.9
