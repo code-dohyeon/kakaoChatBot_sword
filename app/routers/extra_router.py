@@ -598,3 +598,123 @@ async def add_friend(payload: Dict[str, Any] = Body(...), db: AsyncSession = Dep
                 {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
             ]
         )
+
+@router.post("/delete-friend")
+async def delete_friend(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
+    """친구 삭제 처리 ('친구삭제 [이름/코드]' 또는 친구목록 조회)"""
+    user_key = get_user_key(payload)
+    utterance = get_utterance(payload)
+
+    async with UserLockManager.acquire(user_key, timeout=0.3) as acquired:
+        if not acquired:
+            return KakaoResponseBuilder.simple_text("⚡ 이전 요청을 처리 중입니다! 잠시 후 다시 시도해주세요.")
+
+        user = await RunService.get_or_create_user(db, user_key)
+
+        # 내 친구 목록 조회
+        stmt = (
+            select(Friend, User)
+            .join(User, Friend.friend_user_id == User.id)
+            .where(Friend.user_id == user.id)
+        )
+        res = await db.execute(stmt)
+        friend_rows = res.all()
+
+        target_str = utterance
+        for p in ["친구삭제", "친구 삭제", "삭제"]:
+            target_str = target_str.replace(p, " ")
+        target_str = target_str.strip()
+
+        # 삭제 대상 입력이 없는 경우 -> 현재 친구 목록과 삭제 방법 안내
+        if not target_str:
+            if not friend_rows:
+                return KakaoResponseBuilder.basic_card(
+                    title="👥 등록된 친구 없음",
+                    description="현재 등록된 친구가 없습니다.\n새로운 친구를 추가해보세요!",
+                    buttons=[
+                        {"action": "message", "label": "🏆 랭킹 보기", "messageText": "자랑·랭킹"},
+                        {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
+                    ]
+                )
+
+            friend_list_txt = "\n".join([f"• {u.nickname} (코드: {u.friend_code})" for f, u in friend_rows])
+            return KakaoResponseBuilder.basic_card(
+                title="🗑️ 친구 삭제 안내",
+                description=(
+                    f"현재 친구 목록 ({len(friend_rows)}/10명):\n{friend_list_txt}\n\n"
+                    f"삭제할 친구의 닉네임이나 코드를 다음과 같이 입력하세요:\n"
+                    f"👉 '친구삭제 [닉네임 또는 코드]'"
+                ),
+                buttons=[
+                    {"action": "message", "label": "🏆 랭킹 보기", "messageText": "자랑·랭킹"},
+                    {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
+                ]
+            )
+
+        # 대상 찾기 (닉네임 또는 친구코드로 매칭)
+        target_friend_rel = None
+        target_user = None
+        for f, u in friend_rows:
+            if target_str.upper() == u.friend_code.upper() or target_str == u.nickname:
+                target_friend_rel = f
+                target_user = u
+                break
+
+        if not target_friend_rel:
+            return KakaoResponseBuilder.simple_text(f"내 친구 목록에서 [{target_str}] 님을 찾을 수 없습니다.")
+
+        # 삭제 진행
+        await db.delete(target_friend_rel)
+        await db.commit()
+
+        return KakaoResponseBuilder.basic_card(
+            title="🗑️ 친구 삭제 완료",
+            description=f"[{target_user.nickname}] 님이 친구 목록에서 삭제되었습니다.\n(남은 친구: {len(friend_rows)-1}/10명)",
+            buttons=[
+                {"action": "message", "label": "🏆 랭킹 순위표", "messageText": "자랑·랭킹"},
+                {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
+            ]
+        )
+
+@router.post("/fallback")
+async def fallback_handler(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
+    """
+    카카오 오픈빌더 폴백 블록 전용 만능 인터셉터
+    사용자가 오픈빌더 미인식 발화를 입력했을 때 서버가 낚아채서 처리
+    """
+    utterance = get_utterance(payload)
+
+    # 1. 친구 추가 관련
+    if "친구추가" in utterance or "친구 추가" in utterance:
+        return await add_friend(payload, db)
+
+    # 2. 친구 삭제 관련
+    if "친구삭제" in utterance or "친구 삭제" in utterance or utterance in ["친구목록", "친구 목록"]:
+        return await delete_friend(payload, db)
+
+    # 3. 닉네임 변경 관련
+    if utterance.startswith("이름") or utterance.startswith("닉네임"):
+        return await set_nickname(payload, db)
+
+    # 4. 8자리 영숫자 단독 입력인 경우 -> 친구추가로 처리
+    import re
+    if re.fullmatch(r'[A-Za-z0-9]{8}', utterance.strip()):
+        return await add_friend(payload, db)
+
+    # 5. 검 변환 관련
+    if "변환" in utterance:
+        return await transform_menu(payload, db)
+
+    # 그 외 진짜 알 수 없는 발화
+    return KakaoResponseBuilder.basic_card(
+        title="🤔 대장장이가 이해하지 못했습니다",
+        description=(
+            f"입력하신 내용: '{utterance}'\n\n"
+            f"아래 메뉴 중 원하시는 행동을 선택해주세요!"
+        ),
+        buttons=[
+            {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"},
+            {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
+            {"action": "message", "label": "📖 게임 규칙", "messageText": "규칙"}
+        ]
+    )
