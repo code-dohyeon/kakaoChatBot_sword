@@ -81,3 +81,11 @@ async def health_check():
         "service": "sword_upgrade_kakao",
         "max_round": config.rules.get("max_round", 10)
     }
+
+from fastapi.responses import PlainTextResponse
+
+@app.get("/ping", response_class=PlainTextResponse)
+@app.get("/cron", response_class=PlainTextResponse)
+async def cron_ping():
+    """cron-job 및 헬스체크용 심플 엔드포인트 ('ok' 문자열 반환)"""
+    return "ok"
