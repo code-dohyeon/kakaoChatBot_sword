@@ -1,22 +1,34 @@
 import os
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 from dotenv import load_dotenv
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 
-# .env 파일이 존재할 경우 환경 변수 자동 로드
 load_dotenv()
 
-# 로컬 테스트 기본값으로 sqlite 지원, 배포 시 환경 변수 DATABASE_URL (postgresql+asyncpg://...) 사용
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./game.db").strip().strip('"').strip("'")
+raw_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./game.db").strip().strip('"').strip("'")
 
-# Render나 Supabase에서 postgres:// 로 들어올 경우 호환 처리
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+asyncpg://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+if raw_url.startswith("postgres://"):
+    raw_url = raw_url.replace("postgres://", "postgresql+asyncpg://", 1)
+elif raw_url.startswith("postgresql://") and not raw_url.startswith("postgresql+asyncpg://"):
+    raw_url = raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-engine = create_async_engine(DATABASE_URL, echo=False)
-AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+connect_args = {}
+if raw_url.startswith("postgresql+asyncpg://"):
+    parts = urlsplit(raw_url)
+    # asyncpg가 싫어할 수 있는 sslmode 등 쿼리 옵션 정리
+    filtered_query = [
+        (k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True)
+        if k.lower() not in {"sslmode", "channel_binding"}
+    ]
+    raw_url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(filtered_query), parts.fragment))
+    connect_args = {
+        "ssl": "require",
+        "statement_cache_size": 0,
+    }
+
+engine = create_async_engine(raw_url, echo=False, connect_args=connect_args)
+AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 Base = declarative_base()
 
 async def get_db():
