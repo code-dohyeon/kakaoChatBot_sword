@@ -360,19 +360,75 @@ async def view_ranking_and_friend(payload: Dict[str, Any] = Body(...), db: Async
     rank_text = "\n".join(leaderboard) if leaderboard else "등록된 기록이 없습니다."
 
     desc = (
-        f"🔑 내 친구 코드: {user.friend_code}\n"
-        f"(친구 수: {len(friend_rows)}/10명)\n\n"
+        f"👤 내 닉네임: {user.nickname}\n"
+        f"🔑 내 친구 코드: {user.friend_code} ({len(friend_rows)}/10명)\n\n"
         f"🏆 [친구 랭킹 순위표]\n{rank_text}\n\n"
-        f"친구를 등록하려면 '친구추가 [코드]'를 채팅창에 입력해주세요!"
+        f"• 닉네임 변경: '이름 [변경할이름]'\n"
+        f"• 친구 등록: '친구추가 [코드]'"
     )
     return KakaoResponseBuilder.basic_card(
         title="🏆 대장간 친구 랭킹",
         description=desc,
         buttons=[
+            {"action": "message", "label": "✏️ 닉네임 변경 방법", "messageText": "이름변경"},
             {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
             {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"}
         ]
     )
+
+@router.post("/set-nickname")
+async def set_nickname(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
+    """닉네임 변경 처리 (예: '이름 홍길동' 또는 '닉네임 홍길동')"""
+    user_key = get_user_key(payload)
+    utterance = get_utterance(payload)
+
+    async with UserLockManager.acquire(user_key, timeout=0.3) as acquired:
+        if not acquired:
+            return KakaoResponseBuilder.simple_text("⚡ 이전 요청을 처리 중입니다! 잠시 후 다시 시도해주세요.")
+
+        user = await RunService.get_or_create_user(db, user_key)
+
+        # 발화에서 새 닉네임 추출
+        clean_text = utterance
+        for prefix in ["이름변경", "닉네임변경", "이름", "닉네임"]:
+            if clean_text.startswith(prefix):
+                clean_text = clean_text[len(prefix):].strip()
+                break
+
+        if not clean_text:
+            return KakaoResponseBuilder.basic_card(
+                title="✏️ 닉네임 변경 안내",
+                description=(
+                    f"현재 닉네임: [{user.nickname}]\n\n"
+                    f"변경하시려면 채팅창에 다음과 같이 입력해주세요:\n"
+                    f"👉 '이름 [원하는닉네임]'\n"
+                    f"(예: 이름 전설의대장장이)\n\n"
+                    f"※ 2~12자 이내로 설정 가능합니다."
+                ),
+                buttons=[
+                    {"action": "message", "label": "🏆 랭킹 보기", "messageText": "자랑·랭킹"},
+                    {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
+                ]
+            )
+
+        new_name = clean_text.replace(" ", "")
+        if len(new_name) < 2 or len(new_name) > 12:
+            return KakaoResponseBuilder.simple_text("닉네임은 2자 이상 12자 이하로 입력해주세요.")
+
+        old_name = user.nickname
+        user.nickname = new_name
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+        return KakaoResponseBuilder.basic_card(
+            title="✨ 닉네임 변경 완료!",
+            description=f"닉네임이 성공적으로 변경되었습니다.\n• 이전: {old_name}\n• 변경: {new_name}\n\n이제 랭킹 순위표에 새로운 이름으로 표시됩니다!",
+            buttons=[
+                {"action": "message", "label": "🏆 랭킹 확인하기", "messageText": "자랑·랭킹"},
+                {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"}
+            ]
+        )
 
 @router.post("/add-friend")
 async def add_friend(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
