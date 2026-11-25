@@ -71,9 +71,20 @@ class KakaoResponseBuilder:
     ) -> Dict[str, Any]:
         replies = quick_replies if quick_replies is not None else DEFAULT_QUICK_REPLIES
         
-        # 캐러셀 내부의 모든 카드 썸네일도 800x800 규격으로 자동 보정
+        # [카카오 2461 에러 방지]: carousel의 basicCard는 thumbnail이 필수!
+        # thumbnail이 없는 카드는 대표 이미지(upgrade_0.png)를 자동으로 채워 넣음
+        from app.utils.image_helper import get_sword_image_url
+        default_thumb = get_sword_image_url(0)
+
         for item in card_items:
-            if "thumbnail" in item and item["thumbnail"]:
+            if "thumbnail" not in item or not item["thumbnail"]:
+                item["thumbnail"] = {
+                    "imageUrl": default_thumb,
+                    "fixedRatio": True,
+                    "width": 800,
+                    "height": 800
+                }
+            else:
                 item["thumbnail"]["fixedRatio"] = True
                 item["thumbnail"]["width"] = 800
                 item["thumbnail"]["height"] = 800

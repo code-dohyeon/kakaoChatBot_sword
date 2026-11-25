@@ -682,39 +682,44 @@ async def fallback_handler(payload: Dict[str, Any] = Body(...), db: AsyncSession
     카카오 오픈빌더 폴백 블록 전용 만능 인터셉터
     사용자가 오픈빌더 미인식 발화를 입력했을 때 서버가 낚아채서 처리
     """
-    utterance = get_utterance(payload)
+    try:
+        utterance = get_utterance(payload)
 
-    # 1. 친구 추가 관련
-    if "친구추가" in utterance or "친구 추가" in utterance:
-        return await add_friend(payload, db)
+        # 1. 친구 추가 관련
+        if "친구추가" in utterance or "친구 추가" in utterance:
+            return await add_friend(payload, db)
 
-    # 2. 친구 삭제 관련
-    if "친구삭제" in utterance or "친구 삭제" in utterance or utterance in ["친구목록", "친구 목록"]:
-        return await delete_friend(payload, db)
+        # 2. 친구 삭제 관련
+        if "친구삭제" in utterance or "친구 삭제" in utterance or utterance in ["친구목록", "친구 목록"]:
+            return await delete_friend(payload, db)
 
-    # 3. 닉네임 변경 관련
-    if utterance.startswith("이름") or utterance.startswith("닉네임"):
-        return await set_nickname(payload, db)
+        # 3. 닉네임 변경 관련
+        if utterance.startswith("이름") or utterance.startswith("닉네임"):
+            return await set_nickname(payload, db)
 
-    # 4. 8자리 영숫자 단독 입력인 경우 -> 친구추가로 처리
-    import re
-    if re.fullmatch(r'[A-Za-z0-9]{8}', utterance.strip()):
-        return await add_friend(payload, db)
+        # 4. 8자리 영숫자 단독 입력인 경우 -> 친구추가로 처리
+        import re
+        if re.fullmatch(r'[A-Za-z0-9]{8}', utterance.strip()):
+            return await add_friend(payload, db)
 
-    # 5. 검 변환 관련
-    if "변환" in utterance:
-        return await transform_menu(payload, db)
+        # 5. 검 변환 관련
+        if "변환" in utterance:
+            return await transform_menu(payload, db)
 
-    # 그 외 진짜 알 수 없는 발화
-    return KakaoResponseBuilder.basic_card(
-        title="🤔 대장장이가 이해하지 못했습니다",
-        description=(
-            f"입력하신 내용: '{utterance}'\n\n"
-            f"아래 메뉴 중 원하시는 행동을 선택해주세요!"
-        ),
-        buttons=[
-            {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"},
-            {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
-            {"action": "message", "label": "📖 게임 규칙", "messageText": "규칙"}
-        ]
-    )
+        # 그 외 진짜 알 수 없는 발화
+        return KakaoResponseBuilder.basic_card(
+            title="🤔 대장장이가 이해하지 못했습니다",
+            description=(
+                f"입력하신 내용: '{utterance}'\n\n"
+                f"아래 메뉴 중 원하시는 행동을 선택해주세요!"
+            ),
+            buttons=[
+                {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"},
+                {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
+                {"action": "message", "label": "📖 게임 규칙", "messageText": "규칙"}
+            ]
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return KakaoResponseBuilder.simple_text("일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
