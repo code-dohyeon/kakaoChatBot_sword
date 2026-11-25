@@ -135,6 +135,21 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
     if utterance == "되돌리기 사용":
         return await revert_destroyed_sword(payload, db)
 
+    # 변환 발화 체크 ("검변환", "변환", "1번 변환" 등)
+    if "변환" in utterance:
+        from app.routers.extra_router import transform_menu
+        return await transform_menu(payload, db)
+
+    # 친구 추가 발화 인터셉터 ("친구추가", "친구 추가", "친구코드" 등)
+    if "친구추가" in utterance or "친구 추가" in utterance:
+        from app.routers.extra_router import add_friend
+        return await add_friend(payload, db)
+
+    # 닉네임/이름 변경 발화 인터셉터
+    if utterance.startswith("이름") or utterance.startswith("닉네임"):
+        from app.routers.extra_router import set_nickname
+        return await set_nickname(payload, db)
+
     async with UserLockManager.acquire(user_key, timeout=0.3) as acquired:
         if not acquired:
             return KakaoResponseBuilder.simple_text("⚡ 이전 요청을 처리 중입니다! 잠시 후 다시 시도해주세요.")

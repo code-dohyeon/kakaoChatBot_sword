@@ -101,6 +101,7 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
             )
             buttons = [
                 {"action": "message", "label": "🏺 유물 상점", "messageText": "유물보기"},
+                {"action": "message", "label": "🔮 다른 검 변환", "messageText": "검변환"},
                 {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
             ]
             return KakaoResponseBuilder.basic_card(
@@ -108,6 +109,68 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
                 description=desc,
                 buttons=buttons
             )
+
+@router.post("/transform-menu")
+async def transform_menu(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
+    """검 변환 전용 선택 메뉴 ('검변환', '변환', '유물변환')"""
+    user_key = get_user_key(payload)
+    utterance = get_utterance(payload)
+
+    # 특정 검 변환 명령어인 경우 바로 실행 (예: "1번 변환", "2번변환")
+    if "번" in utterance and "변환" in utterance:
+        return await sell_or_transform_sword(payload, db)
+
+    user = await RunService.get_or_create_user(db, user_key)
+    run = await RunService.get_active_run(db, user.id)
+
+    if not run or run.status != "playing":
+        return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다. [새 게임]을 눌러 시작해주세요.")
+
+    if not run.swords:
+        return KakaoResponseBuilder.basic_card(
+            title="🔮 변환할 검이 없습니다!",
+            description="보유한 검이 모두 소진되었습니다.\n[일반 상점]에서 검을 구매하거나 새 게임을 시작하세요.",
+            buttons=[
+                {"action": "message", "label": "🏪 일반 상점", "messageText": "일반 상점"},
+                {"action": "message", "label": "🔄 새 게임", "messageText": "새 게임"}
+            ]
+        )
+
+    cards = []
+    for idx, sword in enumerate(run.swords):
+        lvl = sword.get("level", 0)
+        s_type = sword.get("type", "normal")
+        type_name = config.sword_types.get(s_type, {}).get("name", "기본 검")
+        relic_pts = GameEngine.calculate_relic_points(sword)
+        sell_p = GameEngine.calculate_sell_price(sword, run.relics or [])
+
+        from app.utils.image_helper import get_sword_image_url
+        img_url = get_sword_image_url(lvl)
+
+        desc = (
+            f"등급: +{lvl}강 ({type_name})\n"
+            f"🔮 변환 획득: +{relic_pts}pt 유물 포인트\n"
+            f"(참고: 판매 시 {sell_p:,}G)\n\n"
+            f"이 검을 분해하여 유물 포인트로 변환하시겠습니까?"
+        )
+        card_item = {
+            "title": f"[{idx+1}번 검] +{lvl} {type_name}",
+            "description": desc,
+            "buttons": [
+                {"action": "message", "label": f"🔮 {idx+1}번 검 변환하기", "messageText": f"{idx+1}번 변환"},
+                {"action": "message", "label": "🏺 유물 상점 가기", "messageText": "유물보기"}
+            ]
+        }
+        if img_url:
+            card_item["thumbnail"] = {
+                "imageUrl": img_url,
+                "fixedRatio": True,
+                "width": 800,
+                "height": 800
+            }
+        cards.append(card_item)
+
+    return KakaoResponseBuilder.carousel(cards[:5])
 
 @router.post("/shop")
 async def view_shop(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
@@ -237,6 +300,22 @@ async def view_relics(payload: Dict[str, Any] = Body(...), db: AsyncSession = De
     max_slots = config.rules.get("relic_slots", 4)
 
     cards = []
+
+    # 첫 번째 카드: 유물 상점 안내 & 내 검 변환하러 가기 숏컷
+    header_desc = (
+        f"• 보유 포인트: {run.relic_points}pt\n"
+        f"• 장착 유물: {slots_used}/{max_slots}개\n\n"
+        f"불필요한 검을 [변환]하면 유물 포인트를 얻을 수 있습니다!"
+    )
+    cards.append({
+        "title": "🏺 유물 보관소 & 상점",
+        "description": header_desc,
+        "buttons": [
+            {"action": "message", "label": "🔮 검 변환하러 가기", "messageText": "검변환"},
+            {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
+        ]
+    })
+
     for r in config.relics.values():
         is_owned = r["id"] in owned_relics
         status_tag = " [장착중]" if is_owned else ""
@@ -432,7 +511,8 @@ async def set_nickname(payload: Dict[str, Any] = Body(...), db: AsyncSession = D
 
 @router.post("/add-friend")
 async def add_friend(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
-    """친구 코드 등록 처리 (동시성 락 적용)"""
+    """친구 코드 등록 처리 (유연한 발화 및 8자리 코드 자동 추출 지원)"""
+    import re
     user_key = get_user_key(payload)
     utterance = get_utterance(payload)
 
@@ -442,19 +522,45 @@ async def add_friend(payload: Dict[str, Any] = Body(...), db: AsyncSession = Dep
 
         user = await RunService.get_or_create_user(db, user_key)
 
-        code = utterance.replace("친구추가", "").strip().upper()
+        # 1. 영문+숫자 8자리 코드 패턴 정규식으로 자동 탐색
+        code = None
+        match = re.search(r'\b[A-Za-z0-9]{8}\b', utterance)
+        if match:
+            code = match.group(0).upper()
+        else:
+            # 보조 파싱: '친구추가', '친구 추가' 뒷부분 추출
+            clean = utterance
+            for p in ["친구추가", "친구 추가", "친구", "코드", ":"]:
+                clean = clean.replace(p, " ")
+            clean = clean.strip().upper()
+            if clean:
+                code = clean.split()[0]
+
         if not code:
-            return KakaoResponseBuilder.simple_text("친구 코드를 입력해주세요. (예: 친구추가 A1B2C3D4)")
+            return KakaoResponseBuilder.basic_card(
+                title="🤝 친구 등록 안내",
+                description=(
+                    f"친구의 8자리 코드를 입력해주세요!\n\n"
+                    f"👉 입력 예시:\n"
+                    f"• '친구추가 A1B2C3D4'\n"
+                    f"• 또는 그냥 8자리 코드만 입력\n\n"
+                    f"🔑 나의 친구 코드: [{user.friend_code}]"
+                ),
+                buttons=[
+                    {"action": "message", "label": "🏆 랭킹 보기", "messageText": "자랑·랭킹"},
+                    {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
+                ]
+            )
 
         if code == user.friend_code:
-            return KakaoResponseBuilder.simple_text("자신의 친구 코드는 등록할 수 없습니다.")
+            return KakaoResponseBuilder.simple_text("자신의 친구 코드는 등록할 수 없습니다. 😅")
 
         # 대상 유저 검색
         stmt = select(User).where(User.friend_code == code)
         res = await db.execute(stmt)
         target_user = res.scalar_one_or_none()
         if not target_user:
-            return KakaoResponseBuilder.simple_text(f"해당 친구 코드({code})의 유저를 찾을 수 없습니다.")
+            return KakaoResponseBuilder.simple_text(f"해당 친구 코드({code})의 유저를 찾을 수 없습니다. 코드를 다시 확인해주세요.")
 
         # 현재 친구 수 체크
         friend_stmt = select(Friend).where(Friend.user_id == user.id)
@@ -465,15 +571,28 @@ async def add_friend(payload: Dict[str, Any] = Body(...), db: AsyncSession = Dep
 
         # 이미 등록된 친구인지 체크
         if any(f.friend_user_id == target_user.id for f in current_friends):
-            return KakaoResponseBuilder.simple_text(f"이미 친구로 등록된 유저입니다: {target_user.nickname}")
+            return KakaoResponseBuilder.simple_text(f"이미 친구로 등록된 유저입니다: [{target_user.nickname}]")
 
+        # 쌍방 등록: 상대방 친구 목록에도 나를 자동 추가 (상호 친구 관계 형성)
         new_friend = Friend(user_id=user.id, friend_user_id=target_user.id)
         db.add(new_friend)
+
+        # 상대방의 친구 목록 체크 후 상대방에게도 나를 친구로 추가
+        target_friend_stmt = select(Friend).where(Friend.user_id == target_user.id)
+        tf_res = await db.execute(target_friend_stmt)
+        target_friends = tf_res.scalars().all()
+        if len(target_friends) < 10 and not any(tf.friend_user_id == user.id for tf in target_friends):
+            reciprocal_friend = Friend(user_id=target_user.id, friend_user_id=user.id)
+            db.add(reciprocal_friend)
+
         await db.commit()
 
         return KakaoResponseBuilder.basic_card(
             title="🤝 친구 등록 성공!",
-            description=f"[{target_user.nickname}] 님이 친구 목록에 추가되었습니다!\n이제 랭킹에서 함께 기록을 겨뤄보세요.",
+            description=(
+                f"[{target_user.nickname}] 님과 친구가 되었습니다!\n\n"
+                f"이제 친구 랭킹 순위표에서 서로의 최고 기록을 함께 확인할 수 있습니다."
+            ),
             buttons=[
                 {"action": "message", "label": "🏆 랭킹 확인하기", "messageText": "자랑·랭킹"},
                 {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
