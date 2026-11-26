@@ -1,3 +1,4 @@
+import random
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, desc
 from app.models.game import User, Run, Ranking, RunHistory, EnhanceLog
@@ -148,6 +149,11 @@ class RunService:
             result=result
         )
         db.add(new_log)
+
+        # DB 왕복 최소화를 위해 약 20% 확률(5회당 1회)로만 오래된 로그 정리 실행
+        if random.random() >= 0.20:
+            return
+
         await db.flush()
 
         # 2. 해당 유저의 역대 최고 강화 레벨 로그 ID 확인

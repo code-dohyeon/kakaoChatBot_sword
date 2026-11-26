@@ -241,7 +241,6 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
                 result=result
             )
             await db.commit()
-            await db.refresh(run)
 
             # 다음 강화 확률 및 검 가치(판매가, 변환포인트) 계산 (파괴되지 않았을 때)
             info_str = ""
