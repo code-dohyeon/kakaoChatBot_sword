@@ -180,7 +180,7 @@ async def view_shop(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depe
     # 발화 디스패치
     if utterance.startswith("아이템구매"):
         return await buy_item(payload, db)
-    elif utterance in ["유물보기", "유물상점", "유물", "유물 상점"]:
+    elif utterance in ["유물보기", "유물상점", "유물", "유물 상점"] or utterance.startswith("유물상점"):
         return await view_relics(payload, db)
     elif utterance.startswith("유물구매"):
         return await buy_relic(payload, db)
@@ -310,28 +310,42 @@ async def view_relics(payload: Dict[str, Any] = Body(...), db: AsyncSession = De
     if not run or run.status != "playing":
         return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다.")
 
+    utterance = get_utterance(payload)
+    page = 2 if "2" in utterance else 1
+
     owned_relics = run.relics or []
     slots_used = len(owned_relics)
     max_slots = config.rules.get("relic_slots", 4)
 
+    all_relics = list(config.relics.values())
+    per_page = 8
+    start_idx = (page - 1) * per_page
+    page_relics = all_relics[start_idx:start_idx + per_page]
+
     cards = []
 
-    # 첫 번째 카드: 유물 상점 안내 & 내 검 변환하러 가기 숏컷
+    # 첫 번째 카드: 유물 상점 안내 & 페이지 이동/검 변환 숏컷
     header_desc = (
         f"• 보유 포인트: {run.relic_points}pt\n"
-        f"• 장착 유물: {slots_used}/{max_slots}개\n\n"
+        f"• 장착 유물: {slots_used}/{max_slots}개\n"
+        f"• 페이지: {page}/2\n\n"
         f"불필요한 검을 [변환]하면 유물 포인트를 얻을 수 있습니다!"
     )
+    header_buttons = [
+        {"action": "message", "label": "🔮 검 변환하러 가기", "messageText": "검변환"}
+    ]
+    if page == 1 and len(all_relics) > per_page:
+        header_buttons.append({"action": "message", "label": "➡️ 다음 유물 보기 (2/2)", "messageText": "유물상점 2"})
+    elif page == 2:
+        header_buttons.append({"action": "message", "label": "⬅️ 이전 유물 보기 (1/2)", "messageText": "유물상점"})
+
     cards.append({
-        "title": "🏺 유물 보관소 & 상점",
+        "title": f"🏺 유물 보관소 & 상점 ({page}/2)",
         "description": header_desc,
-        "buttons": [
-            {"action": "message", "label": "🔮 검 변환하러 가기", "messageText": "검변환"},
-            {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"}
-        ]
+        "buttons": header_buttons
     })
 
-    for r in config.relics.values():
+    for r in page_relics:
         is_owned = r["id"] in owned_relics
         status_tag = " [장착중]" if is_owned else ""
         desc = (
@@ -350,8 +364,7 @@ async def view_relics(payload: Dict[str, Any] = Body(...), db: AsyncSession = De
             "buttons": [btn]
         })
 
-    # 카카오 캐러셀은 5개 제한이므로 상위 5개 또는 2개 카드 묶음 제공
-    return KakaoResponseBuilder.carousel(cards[:5])
+    return KakaoResponseBuilder.carousel(cards[:10])
 
 @router.post("/buy-relic")
 async def buy_relic(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
