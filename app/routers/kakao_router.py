@@ -533,22 +533,37 @@ async def finish_round(payload: Dict[str, Any] = Body(...), db: AsyncSession = D
 
 @router.post("/rules")
 async def show_rules(payload: Dict[str, Any] = None):
-    """게임 규칙 안내 (최신화)"""
-    desc = (
-        "⚔️ [검 강화 대장간 공식 가이드]\n\n"
-        "1. 🎯 목표: 매 라운드 검을 팔아 납품 목표를 채우고, 10라운드를 돌파하세요!\n"
-        "2. 📦 납품 기준: 소지금이 아니라 '이번 라운드에 검을 팔아 번 수익'으로 판정합니다. (소지금은 차감되지 않고 이월!)\n"
-        "3. 🔨 강화: 강화 비용과 횟수 제한이 없습니다! 오직 파괴 위험만이 제동 장치입니다.\n"
-        "4. 🔮 유물 변환: 검을 변환해 얻은 포인트로 유물 상점에서 최대 4개의 강력한 영구 패시브를 장착하세요.\n"
-        "5. 🏪 상점 분리: 골드로 장비를 사는 [일반 상점]과 포인트로 패시브를 사는 [유물 상점]이 있습니다.\n"
-        "6. 🏆 랭킹: '이름 [닉네임]'으로 내 이름을 걸고 친구들과 도달 라운드를 겨뤄보세요!"
-    )
-    return KakaoResponseBuilder.basic_card(
-        title="📖 검 강화 대장간 가이드",
-        description=desc,
-        buttons=[
+    """게임 규칙 및 파트별 명령어 안내 (캐러셀)"""
+    card_game = {
+        "title": "📖 게임 설명 (검 강화 대장간)",
+        "description": (
+            "1. 🎯 목표: 검을 강화해 팔아 라운드 목표 골드를 채우고, 10라운드를 돌파하세요!\n"
+            "2. 📦 납품: 소지금이 아닌 '이번 라운드 판매 수익'으로 판정합니다. (소지금은 이월!)\n"
+            "3. 🔨 강화: 비용/횟수 제한 없이 강화 가능! (파괴 주의)\n"
+            "4. 🏺 유물 & 이벤트: 검 변환 포인트로 유물을 장착하고, 매 라운드 랜덤 이벤트를 공략하세요."
+        ),
+        "buttons": [
             {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
-            {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"},
+            {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"}
+        ]
+    }
+    card_cmds = {
+        "title": "⌨️ 파트별 명령어 안내",
+        "description": (
+            "[⚔️ 전투/강화]\n"
+            "• 새 게임 / 내 검 보기 / 강화하기 / N번 강화\n"
+            "• N번 판매 / N번 변환 / 납품·마감\n\n"
+            "[🏪 상점/수집]\n"
+            "• 상점 가기 / 일반 상점 / 유물 상점\n"
+            "• 도감 / 칭호 / 칭호장착 [이름]\n\n"
+            "[🏆 소셜]\n"
+            "• 자랑·랭킹 / 이름 [닉네임]\n"
+            "• 친구추가 [코드] / 친구목록"
+        ),
+        "buttons": [
+            {"action": "message", "label": "📚 도감 보기", "messageText": "도감"},
+            {"action": "message", "label": "🏅 칭호 보기", "messageText": "칭호"},
             {"action": "message", "label": "🏆 친구 랭킹", "messageText": "자랑·랭킹"}
         ]
-    )
+    }
+    return KakaoResponseBuilder.carousel([card_game, card_cmds])
