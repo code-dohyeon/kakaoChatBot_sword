@@ -100,7 +100,7 @@ async def view_my_swords(payload: Dict[str, Any] = Body(...), db: AsyncSession =
             f"확률: 성 {int(probs['success']*100)}% / 대성 {int(probs['great_success']*100)}% / "
             f"유지 {int(probs['keep']*100)}% / 파괴 {int(probs['destroy']*100)}%"
         )
-        img_url = get_sword_image_url(lvl)
+        img_url = get_sword_image_url(lvl, s_type)
         card_item = {
             "title": f"[{idx+1}번 검] +{lvl}",
             "description": desc,
@@ -306,7 +306,7 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
                     buttons.append({"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"})
                     buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점 가기"})
 
-            result_img_url = get_sword_image_url(details["to_level"]) if result != "destroy" else None
+            result_img_url = get_sword_image_url(details["to_level"], s_type) if result != "destroy" else None
             flag_modified(run, "swords")
             
             return KakaoResponseBuilder.basic_card(
@@ -368,7 +368,7 @@ async def revert_destroyed_sword(payload: Dict[str, Any] = Body(...), db: AsyncS
         await db.commit()
 
         restored_idx = len(swords)
-        img_url = get_sword_image_url(lvl)
+        img_url = get_sword_image_url(lvl, s_type)
         return KakaoResponseBuilder.basic_card(
             title="🔮 기적의 검 복구 성공!",
             description=f"신비한 주문서의 힘으로 +{lvl}강 {type_name}이(가) 완벽히 복원되었습니다!\n(보유 검: {len(swords)}개)",

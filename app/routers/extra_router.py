@@ -145,7 +145,7 @@ async def transform_menu(payload: Dict[str, Any] = Body(...), db: AsyncSession =
         sell_p = GameEngine.calculate_sell_price(sword, run.relics or [])
 
         from app.utils.image_helper import get_sword_image_url
-        img_url = get_sword_image_url(lvl)
+        img_url = get_sword_image_url(lvl, s_type)
 
         desc = (
             f"등급: +{lvl}강 ({type_name})\n"
