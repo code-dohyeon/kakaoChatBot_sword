@@ -72,18 +72,31 @@ class KakaoResponseBuilder:
         replies = quick_replies if quick_replies is not None else DEFAULT_QUICK_REPLIES
         
         # [카카오 2461 에러 방지]: carousel의 basicCard는 thumbnail이 필수!
-        # thumbnail이 없는 카드는 대표 이미지(upgrade_0.png)를 자동으로 채워 넣음
+        # 카드에 _sword_type/_sword_level 임시 필드가 있으면 해당 타입 이미지로 썸네일 자동 채움
         from app.utils.image_helper import get_sword_image_url
-        default_thumb = get_sword_image_url(0)
 
         for item in card_items:
+            # 카드에서 임시 메타 필드 꺼내기 (카카오 응답에 포함되면 안 되므로 pop)
+            sword_type = item.pop("_sword_type", "normal")
+            sword_level = item.pop("_sword_level", 0)
+
             if "thumbnail" not in item or not item["thumbnail"]:
-                item["thumbnail"] = {
-                    "imageUrl": default_thumb,
-                    "fixedRatio": True,
-                    "width": 800,
-                    "height": 800
-                }
+                thumb_url = get_sword_image_url(sword_level, sword_type)
+                if thumb_url:
+                    item["thumbnail"] = {
+                        "imageUrl": thumb_url,
+                        "fixedRatio": True,
+                        "width": 800,
+                        "height": 800
+                    }
+                else:
+                    # SERVER_BASE_URL 없는 경우 — 빈 썸네일 플레이스홀더
+                    item["thumbnail"] = {
+                        "imageUrl": "https://via.placeholder.com/800",
+                        "fixedRatio": True,
+                        "width": 800,
+                        "height": 800
+                    }
             else:
                 item["thumbnail"]["fixedRatio"] = True
                 item["thumbnail"]["width"] = 800

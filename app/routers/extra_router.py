@@ -46,8 +46,11 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
 
         target_sword = run.swords[sword_idx]
         lvl = target_sword.get("level", 0)
+        s_type = target_sword.get("type", "normal")
 
         if is_sell:
+            from app.utils.image_helper import get_sword_image_url
+            sell_img_url = get_sword_image_url(lvl, s_type)
             gold_gain = GameEngine.calculate_sell_price(target_sword, run.relics or [])
             run.gold += gold_gain
             run.round_sales_gold = (getattr(run, 'round_sales_gold', 0) or 0) + gold_gain
@@ -79,6 +82,7 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
             return KakaoResponseBuilder.basic_card(
                 title="💰 판매 완료",
                 description=desc,
+                thumbnail_url=sell_img_url,
                 buttons=buttons[:3]
             )
         else:
@@ -215,9 +219,13 @@ async def view_shop(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depe
         price = int(item["base_price"] * round_mult)
         item_desc = item.get("description", "추가 검을 구매합니다.")
         desc = f"가격: {price:,}G (보유 골드: {run.gold:,}G)\n효과: {item_desc}"
+        # 검 품목이면 해당 타입의 0강 이미지, 그 외는 normal 0강
+        item_sword_type = item.get("target_id", "normal") if item.get("type") == "sword" else "normal"
         cards.append({
             "title": f"🏪 {item['name']}",
             "description": desc,
+            "_sword_type": item_sword_type,
+            "_sword_level": 0,
             "buttons": [
                 {"action": "message", "label": f"{price:,}G로 구매", "messageText": f"아이템구매 {item['id']}"}
             ]
@@ -264,19 +272,24 @@ async def buy_item(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depen
 
         # 검 구매인 경우
         if item.get("type") == "sword":
+            new_sword_type = item.get("target_id", "normal")
             swords = list(run.swords or [])
             new_id = max([s.get("id", 0) for s in swords], default=0) + 1
             swords.append({
                 "id": new_id,
-                "type": item.get("target_id", "normal"),
+                "type": new_sword_type,
                 "level": 0
             })
             run.swords = swords
             await db.commit()
 
+            from app.utils.image_helper import get_sword_image_url
+            buy_img_url = get_sword_image_url(0, new_sword_type)
+
             return KakaoResponseBuilder.basic_card(
                 title=f"🗡️ {item['name']} 구매 완료!",
                 description=f"{price:,}G를 지불하고 새로운 검을 획득했습니다.\n• 보유 골드: {run.gold:,}G\n• 보유 검: {len(run.swords)}개",
+                thumbnail_url=buy_img_url,
                 buttons=[
                     {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
                     {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"},
