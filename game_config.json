@@ -10,11 +10,11 @@
   },
   "enhance_base_weights": {
     "destroy_base": 0.0,
-    "destroy_per_level": 0.035,
-    "destroy_max": 0.44,
+    "destroy_per_level": 0.022,
+    "destroy_max": 0.28,
     "success_base": 0.8,
-    "success_per_level_reduction": 0.048,
-    "success_min": 0.2,
+    "success_per_level_reduction": 0.035,
+    "success_min": 0.25,
     "great_success_fixed": 0.07,
     "keep_fixed": 0.12
   },
