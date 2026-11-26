@@ -27,7 +27,11 @@ if raw_url.startswith("postgresql+asyncpg://"):
         "statement_cache_size": 0,
     }
 
-engine = create_async_engine(raw_url, echo=False, connect_args=connect_args)
+engine_kwargs = {"echo": False, "connect_args": connect_args}
+if raw_url.startswith("postgresql+asyncpg://"):
+    engine_kwargs.update({"pool_pre_ping": True, "pool_recycle": 300, "pool_size": 10, "max_overflow": 20})
+
+engine = create_async_engine(raw_url, **engine_kwargs)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 Base = declarative_base()
 

@@ -73,10 +73,10 @@ async def view_my_swords(payload: Dict[str, Any] = Body(...), db: AsyncSession =
         if can_advance:
             desc += f"현재 보유 골드({run.gold:,}G)가 목표({target_gold:,}G)를 달성했습니다!\n[납품·마감]하여 다음 라운드로 진행할 수 있습니다."
             buttons.append({"action": "message", "label": "📦 납품·마감", "messageText": "납품·마감"})
-            buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"})
+            buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점 가기"})
         else:
             desc += f"목표 골드: {target_gold:,}G (보유: {run.gold:,}G)\n상점에서 검을 추가로 구매하거나 새 게임을 시작하세요."
-            buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"})
+            buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점 가기"})
             buttons.append({"action": "message", "label": "🔄 새 게임", "messageText": "새 게임"})
 
         return KakaoResponseBuilder.basic_card(
@@ -175,7 +175,7 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
                 buttons.append({"action": "message", "label": "🏪 상점에서 검 구매", "messageText": "상점·유물"})
             else:
                 desc += f"목표 골드: {target_gold:,}G (보유: {run.gold:,}G)\n상점에서 검을 추가로 구매하거나 새 게임을 시작하세요."
-                buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"})
+                buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점 가기"})
                 buttons.append({"action": "message", "label": "🔄 새 게임", "messageText": "새 게임"})
 
             return KakaoResponseBuilder.basic_card(
@@ -299,12 +299,12 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
                     target_gold = GameEngine.get_target_gold_for_round(run.round)
                     if run.gold >= target_gold:
                         buttons.append({"action": "message", "label": "📦 납품·마감", "messageText": "납품·마감"})
-                    buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"})
+                    buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점 가기"})
                     if run.gold < target_gold and len(buttons) < 3:
                         buttons.append({"action": "message", "label": "🔄 새 게임", "messageText": "새 게임"})
                 else:
                     buttons.append({"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"})
-                    buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"})
+                    buttons.append({"action": "message", "label": "🏪 상점 가기", "messageText": "상점 가기"})
 
             result_img_url = get_sword_image_url(details["to_level"]) if result != "destroy" else None
             flag_modified(run, "swords")
@@ -338,7 +338,7 @@ async def revert_destroyed_sword(payload: Dict[str, Any] = Body(...), db: AsyncS
             return KakaoResponseBuilder.basic_card(
                 title="🔮 복구 실패",
                 description="보유 중인 [파괴 되돌리기 주문서]가 없습니다!\n상점에서 구매 후 이용해주세요.",
-                buttons=[{"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"}]
+                buttons=[{"action": "message", "label": "🏪 상점 가기", "messageText": "상점 가기"}]
             )
 
         if not run.last_destroyed_sword:
@@ -376,7 +376,7 @@ async def revert_destroyed_sword(payload: Dict[str, Any] = Body(...), db: AsyncS
             buttons=[
                 {"action": "message", "label": f"{restored_idx}번 계속 강화", "messageText": f"{restored_idx}번 강화"},
                 {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
-                {"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"}
+                {"action": "message", "label": "🏪 상점 가기", "messageText": "상점 가기"}
             ]
         )
 
@@ -430,7 +430,7 @@ async def finish_round(payload: Dict[str, Any] = Body(...), db: AsyncSession = D
                 )
                 buttons = [
                     {"action": "message", "label": "🗡️ 검 판매하러 가기", "messageText": "내 검 보기"},
-                    {"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"},
+                    {"action": "message", "label": "🏪 상점 가기", "messageText": "상점 가기"},
                     {"action": "message", "label": "💀 그래도 마감", "messageText": "그래도 마감"}
                 ]
             return KakaoResponseBuilder.basic_card(title=title, description=desc, buttons=buttons)

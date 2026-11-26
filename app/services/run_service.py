@@ -7,21 +7,31 @@ from app.services.game_engine import GameEngine
 from typing import Optional, Dict, Any, Tuple
 
 class RunService:
-    @staticmethod
-    async def get_or_create_user(db: AsyncSession, kakao_user_key: str) -> User:
+    _user_id_cache: Dict[str, int] = {}
+
+    @classmethod
+    async def get_user_id_fast(cls, db: AsyncSession, kakao_user_key: str) -> int:
+        if kakao_user_key in cls._user_id_cache:
+            return cls._user_id_cache[kakao_user_key]
+        user = await cls.get_or_create_user(db, kakao_user_key)
+        cls._user_id_cache[kakao_user_key] = user.id
+        return user.id
+
+    @classmethod
+    async def get_or_create_user(cls, db: AsyncSession, kakao_user_key: str) -> User:
         stmt = select(User).where(User.kakao_user_key == kakao_user_key)
         res = await db.execute(stmt)
         user = res.scalar_one_or_none()
         if not user:
             user = User(kakao_user_key=kakao_user_key)
             db.add(user)
-            await db.commit()
-            await db.refresh(user)
+            await db.flush()
 
-            # 랭킹 기본 행 생성
+            # 랭킹 기본 행 생성 (단일 트랜잭션으로 커밋)
             ranking = Ranking(user_id=user.id, best_round=1, best_level=0)
             db.add(ranking)
             await db.commit()
+        cls._user_id_cache[kakao_user_key] = user.id
         return user
 
     @staticmethod
@@ -35,15 +45,28 @@ class RunService:
         stmt = select(Run).where(Run.user_id == user_id)
         res = await db.execute(stmt)
         existing = res.scalar_one_or_none()
-        if existing:
-            await db.delete(existing)
-            await db.commit()
 
         # 라운드 1 기본 검 3개 지급
         starting_swords = [
             {"id": i + 1, "type": "normal", "level": 0}
             for i in range(config.rules.get("swords_per_round", 3))
         ]
+
+        if existing:
+            existing.round = 1
+            existing.gold = config.rules.get("starting_gold", 0)
+            existing.round_sales_gold = 0
+            existing.relic_points = 0
+            existing.swords = starting_swords
+            existing.items = []
+            existing.relics = []
+            existing.shield = 0
+            existing.boost = 0
+            existing.destroyed_count = 0
+            existing.last_destroyed_sword = None
+            existing.status = "playing"
+            await db.commit()
+            return existing
 
         new_run = Run(
             user_id=user_id,
@@ -61,7 +84,6 @@ class RunService:
         )
         db.add(new_run)
         await db.commit()
-        await db.refresh(new_run)
         return new_run
 
     @classmethod
