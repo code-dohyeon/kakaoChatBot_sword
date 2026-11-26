@@ -3,11 +3,10 @@ from typing import List, Dict, Any, Optional
 DEFAULT_QUICK_REPLIES = [
     {"label": "⚔️ 강화하기", "action": "message", "messageText": "강화하기"},
     {"label": "🗡️ 내 검 보기", "action": "message", "messageText": "내 검 보기"},
-    {"label": "🏪 일반 상점", "action": "message", "messageText": "일반 상점"},
-    {"label": "🏺 유물 상점", "action": "message", "messageText": "유물 상점"},
+    {"label": "🏪 상점 가기", "action": "message", "messageText": "상점 가기"},
     {"label": "📦 납품·마감", "action": "message", "messageText": "납품·마감"},
     {"label": "🏆 자랑·랭킹", "action": "message", "messageText": "자랑·랭킹"},
-    {"label": "🔄 새 게임", "action": "message", "messageText": "새 게임"}
+    {"label": "📋 더보기", "action": "message", "messageText": "더보기"}
 ]
 
 class KakaoResponseBuilder:

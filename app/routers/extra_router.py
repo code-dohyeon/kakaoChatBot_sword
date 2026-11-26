@@ -1152,9 +1152,15 @@ async def fallback_handler(payload: Dict[str, Any] = Body(...), db: AsyncSession
     try:
         utterance = get_utterance(payload)
 
-        # 0. 더보기 메뉴 & 라운드 이벤트 선택 & 도감 & 칭호/업적 조회
+        # 0. 더보기 메뉴 & 상점/구매 & 라운드 이벤트 선택 & 도감 & 칭호/업적 조회
         if utterance in ["더보기", "메뉴", "전체메뉴", "전체 메뉴"]:
             return await show_more_menu(payload)
+        if utterance.startswith("아이템구매"):
+            return await buy_item(payload, db)
+        if utterance.startswith("유물구매"):
+            return await buy_relic(payload, db)
+        if utterance in ["상점 가기", "상점가기", "상점", "상점·유물", "일반 상점", "일반상점", "골드 상점", "골드상점", "유물 상점", "유물상점", "유물보기"]:
+            return await view_shop(payload, db)
         if utterance.startswith("이벤트선택"):
             return await handle_event_choice(payload, db)
         if utterance.startswith("도감") or utterance in ["검 도감", "검도감", "유물 도감", "유물도감", "이벤트 도감", "이벤트도감"]:
