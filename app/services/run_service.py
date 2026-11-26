@@ -137,13 +137,14 @@ class RunService:
         )
         db.add(history)
 
-        # 랭킹 갱신
+        # 랭킹 갱신 (라운드는 최고 라운드 도달 시, 강화 레벨은 역대 최고 강화 수치 기준)
         stmt = select(Ranking).where(Ranking.user_id == run.user_id)
         res = await db.execute(stmt)
         ranking = res.scalar_one_or_none()
         if ranking:
-            if run.round > ranking.best_round or (run.round == ranking.best_round and best_level > ranking.best_level):
+            if run.round > ranking.best_round:
                 ranking.best_round = run.round
+            if best_level > ranking.best_level:
                 ranking.best_level = best_level
 
     @staticmethod
@@ -171,6 +172,14 @@ class RunService:
             result=result
         )
         db.add(new_log)
+
+        # 1-1. 역대 최고 강화 레벨 즉시 갱신 (라운드 무관, 판매/파괴되어도 유지)
+        if result in ("success", "great_success") and to_level > 0:
+            rk_stmt = select(Ranking).where(Ranking.user_id == user_id)
+            rk_res = await db.execute(rk_stmt)
+            ranking = rk_res.scalar_one_or_none()
+            if ranking and to_level > ranking.best_level:
+                ranking.best_level = to_level
 
         # DB 왕복 최소화를 위해 약 20% 확률(5회당 1회)로만 오래된 로그 정리 실행
         if random.random() >= 0.20:
