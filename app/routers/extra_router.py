@@ -215,10 +215,22 @@ async def view_shop(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depe
 
     # [일반 상점]: 골드로 구매하는 소모품 및 검 품목들만 깔끔하게 노출
     cards = []
+    run_items = run.items or []
     for item in config.shop_items.values():
         price = int(item["base_price"] * round_mult)
         item_desc = item.get("description", "추가 검을 구매합니다.")
-        desc = f"가격: {price:,}G (보유 골드: {run.gold:,}G)\n효과: {item_desc}"
+        max_per_round = item.get("max_per_round")
+        limit_str = ""
+        btn_label = f"{price:,}G로 구매"
+
+        if max_per_round is not None:
+            marker = f"_bought_r{run.round}_{item['id']}"
+            bought_cnt = run_items.count(marker)
+            limit_str = f"\n(이번 라운드 구매: {bought_cnt}/{max_per_round}회)"
+            if bought_cnt >= max_per_round:
+                btn_label = "🚫 이번 라운드 품절"
+
+        desc = f"가격: {price:,}G (보유 골드: {run.gold:,}G)\n효과: {item_desc}{limit_str}"
         # 검 품목이면 해당 타입의 0강 이미지, 그 외는 normal 0강
         item_sword_type = item.get("target_id", "normal") if item.get("type") == "sword" else "normal"
         cards.append({
@@ -227,7 +239,7 @@ async def view_shop(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depe
             "_sword_type": item_sword_type,
             "_sword_level": 0,
             "buttons": [
-                {"action": "message", "label": f"{price:,}G로 구매", "messageText": f"아이템구매 {item['id']}"}
+                {"action": "message", "label": btn_label, "messageText": f"아이템구매 {item['id']}"}
             ]
         })
 
@@ -254,6 +266,22 @@ async def buy_item(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depen
         item = config.shop_items.get(item_id)
         if not item:
             return KakaoResponseBuilder.simple_text("존재하지 않는 상점 품목입니다.")
+
+        # 라운드당 구매 횟수 제한 체크
+        max_per_round = item.get("max_per_round")
+        if max_per_round is not None:
+            marker = f"_bought_r{run.round}_{item_id}"
+            bought_cnt = (run.items or []).count(marker)
+            if bought_cnt >= max_per_round:
+                return KakaoResponseBuilder.basic_card(
+                    title="🚫 구매 횟수 제한",
+                    description=f"[{item['name']}]은(는) 라운드당 최대 {max_per_round}회까지만 구매할 수 있습니다!\n다음 라운드에 다시 구매해주세요.",
+                    buttons=[
+                        {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
+                        {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"},
+                        {"action": "message", "label": "🏪 상점 가기", "messageText": "상점·유물"}
+                    ]
+                )
 
         round_mult = (config.rules.get("shop_price_multiplier", 1.4) ** (run.round - 1))
         price = int(item["base_price"] * round_mult)
@@ -300,7 +328,10 @@ async def buy_item(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depen
             # 소비성 아이템 구매 (protect_destroy, revert_destroy 등)
             items = list(run.items or [])
             items.append(item_id)
+            if max_per_round is not None:
+                items.append(f"_bought_r{run.round}_{item_id}")
             run.items = items
+            flag_modified(run, "items")
             await db.commit()
 
             return KakaoResponseBuilder.basic_card(

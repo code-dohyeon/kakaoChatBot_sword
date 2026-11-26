@@ -157,6 +157,7 @@
       "name": "파괴 방지 부적",
       "base_price": 450,
       "type": "consumable",
+      "max_per_round": 5,
       "description": "다음 강화 실패로 파괴 시 유지로 막아줍니다."
     },
     {
@@ -164,6 +165,7 @@
       "name": "파괴 되돌리기 주문서",
       "base_price": 900,
       "type": "consumable",
+      "max_per_round": 3,
       "description": "검 파괴 시 직전 강화 레벨로 복구합니다."
     }
   ],
