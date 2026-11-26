@@ -6,7 +6,7 @@
     "relic_slots": 4,
     "target_gold_base": 800,
     "target_gold_multiplier": 1.63,
-    "shop_price_multiplier": 1.4
+    "shop_price_multiplier": 1.25
   },
   "enhance_base_weights": {
     "destroy_base": 0.0,
@@ -21,25 +21,25 @@
   "sword_types": {
     "normal": {
       "name": "기본 검",
-      "base_price": 100,
-      "price_multiplier": 1.6,
-      "shop_price": 300,
+      "base_price": 120,
+      "price_multiplier": 1.65,
+      "shop_price": 250,
       "base_relic_points": 1,
       "relic_points_per_5_levels": 1
     },
     "stick": {
       "name": "나뭇가지",
-      "base_price": 50,
-      "price_multiplier": 1.5,
-      "shop_price": 100,
+      "base_price": 60,
+      "price_multiplier": 1.55,
+      "shop_price": 80,
       "base_relic_points": 0,
       "relic_points_per_5_levels": 1
     },
     "skewer": {
       "name": "꼬챙이",
-      "base_price": 120,
-      "price_multiplier": 1.65,
-      "shop_price": 500,
+      "base_price": 150,
+      "price_multiplier": 1.7,
+      "shop_price": 400,
       "base_relic_points": 1,
       "relic_points_per_5_levels": 1
     }
@@ -93,41 +93,76 @@
       "point_cost": 5,
       "description": "대성공 시 +1 추가 (총 +3)",
       "effect": { "type": "great_success_bonus_levels", "value": 1 }
+    },
+    {
+      "id": "recycling_art",
+      "name": "재활용의 미학",
+      "point_cost": 2,
+      "description": "검 변환 시 유물 포인트 +1pt 추가",
+      "effect": { "type": "transform_bonus_points", "value": 1 }
+    },
+    {
+      "id": "golden_whetstone",
+      "name": "황금 숫돌",
+      "point_cost": 3,
+      "description": "강화 성공/대성공 시 도달 레벨 x 30G 획득",
+      "effect": { "type": "enhance_bonus_gold_per_level", "value": 30 }
+    },
+    {
+      "id": "scrap_collector",
+      "name": "고철 수집가",
+      "point_cost": 2,
+      "description": "검 파괴 시 파괴된 레벨 x 50G 위로금 획득",
+      "effect": { "type": "destroy_scrap_gold_per_level", "value": 50 }
+    },
+    {
+      "id": "miracle_charm",
+      "name": "기적의 부적",
+      "point_cost": 4,
+      "description": "파괴 시 20% 확률로 파괴 무효화(유지)",
+      "effect": { "type": "destroy_negate_chance", "value": 0.20 }
+    },
+    {
+      "id": "master_touch",
+      "name": "달인의 손길",
+      "point_cost": 3,
+      "description": "+0~+4강 강화 시 성공 확률 +15%p",
+      "effect": { "type": "low_level_success_rate_add", "max_level": 4, "value": 0.15 }
     }
   ],
   "shop_items": [
     {
       "id": "sword_normal",
       "name": "기본 검",
-      "base_price": 300,
+      "base_price": 250,
       "type": "sword",
       "target_id": "normal"
     },
     {
       "id": "sword_stick",
       "name": "나뭇가지",
-      "base_price": 100,
+      "base_price": 80,
       "type": "sword",
       "target_id": "stick"
     },
     {
       "id": "sword_skewer",
       "name": "꼬챙이",
-      "base_price": 500,
+      "base_price": 400,
       "type": "sword",
       "target_id": "skewer"
     },
     {
       "id": "protect_destroy",
       "name": "파괴 방지 부적",
-      "base_price": 600,
+      "base_price": 450,
       "type": "consumable",
       "description": "다음 강화 실패로 파괴 시 유지로 막아줍니다."
     },
     {
       "id": "revert_destroy",
       "name": "파괴 되돌리기 주문서",
-      "base_price": 1200,
+      "base_price": 900,
       "type": "consumable",
       "description": "검 파괴 시 직전 강화 레벨로 복구합니다."
     }

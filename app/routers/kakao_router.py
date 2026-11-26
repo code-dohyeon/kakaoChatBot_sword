@@ -46,7 +46,7 @@ async def start_game(payload: Dict[str, Any] = Body(...), db: AsyncSession = Dep
             title=title,
             description=desc,
             buttons=[
-                {"action": "message", "label": "🗡️ 강화할 검 고르기", "messageText": "강화하기"},
+                {"action": "message", "label": "🗡️ 강화할 검 고르기", "messageText": "내 검 보기"},
                 {"action": "message", "label": "📖 게임 규칙", "messageText": "규칙"}
             ]
         )
@@ -91,7 +91,7 @@ async def view_my_swords(payload: Dict[str, Any] = Body(...), db: AsyncSession =
         s_type = sword.get("type", "normal")
         type_name = config.sword_types.get(s_type, {}).get("name", "기본 검")
         sell_p = GameEngine.calculate_sell_price(sword, run.relics or [])
-        relic_pts = GameEngine.calculate_relic_points(sword)
+        relic_pts = GameEngine.calculate_relic_points(sword, run.relics or [])
         probs = GameEngine.calculate_enhance_probabilities(lvl, run.relics or [], run.boost or 0)
 
         desc = (
@@ -184,13 +184,38 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
                 buttons=buttons[:3]
             )
 
-        # 검 번호 파싱 (예: "1번 강화", 없으면 기본 1번 검)
-        sword_idx = 0
+        # 검 번호 파싱 (예: "1번 강화")
+        sword_idx = None
         words = utterance.split()
         for w in words:
             if "번" in w and w.replace("번", "").isdigit():
                 sword_idx = int(w.replace("번", "")) - 1
                 break
+
+        # 검이 여러 개 있는데 번호를 지정하지 않은 경우 선택 화면 표시
+        if sword_idx is None:
+            if len(run.swords) > 1:
+                buttons = []
+                desc_lines = ["강화할 검을 선택해주세요!\n"]
+                for idx, s in enumerate(run.swords):
+                    lvl = s.get("level", 0)
+                    s_type = s.get("type", "normal")
+                    type_name = config.sword_types.get(s_type, {}).get("name", "기본 검")
+                    desc_lines.append(f"• {idx+1}번: +{lvl}강 ({type_name})")
+                    if len(buttons) < 3:
+                        buttons.append({
+                            "action": "message",
+                            "label": f"⚔️ {idx+1}번 (+{lvl}강)",
+                            "messageText": f"{idx+1}번 강화"
+                        })
+                if len(run.swords) > 3:
+                    desc_lines.append("\n(더 많은 검은 [내 검 보기]에서 선택하거나 '4번 강화'처럼 입력해주세요)")
+                return KakaoResponseBuilder.basic_card(
+                    title="🗡️ 어떤 검을 강화할까요?",
+                    description="\n".join(desc_lines),
+                    buttons=buttons
+                )
+            sword_idx = 0
 
         if sword_idx < 0 or sword_idx >= len(run.swords):
             sword_idx = 0
@@ -205,8 +230,9 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
             flag_modified(run, "items")
             db.add(run)
 
-            # 로그 저장
-            log = EnhanceLog(
+            # 로그 저장 (최고 기록 1개 보존 + 최근 20개 유지)
+            await RunService.add_enhance_log(
+                db=db,
                 user_id=user.id,
                 run_id=run.id,
                 sword_type=s_type,
@@ -214,7 +240,6 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
                 to_level=details["to_level"],
                 result=result
             )
-            db.add(log)
             await db.commit()
             await db.refresh(run)
 
@@ -223,7 +248,7 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
             if result != "destroy":
                 cur_sword = run.swords[sword_idx]
                 sell_p = GameEngine.calculate_sell_price(cur_sword, run.relics or [])
-                relic_p = GameEngine.calculate_relic_points(cur_sword)
+                relic_p = GameEngine.calculate_relic_points(cur_sword, run.relics or [])
 
                 next_probs = GameEngine.calculate_enhance_probabilities(
                     details["to_level"], run.relics or [], run.boost or 0

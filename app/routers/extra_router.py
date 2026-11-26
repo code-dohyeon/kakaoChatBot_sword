@@ -83,7 +83,7 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
             )
         else:
             # 변환 (유물 포인트 획득)
-            pt_gain = GameEngine.calculate_relic_points(target_sword)
+            pt_gain = GameEngine.calculate_relic_points(target_sword, run.relics or [])
             run.relic_points += pt_gain
             swords = list(run.swords)
             swords.pop(sword_idx)
@@ -141,7 +141,7 @@ async def transform_menu(payload: Dict[str, Any] = Body(...), db: AsyncSession =
         lvl = sword.get("level", 0)
         s_type = sword.get("type", "normal")
         type_name = config.sword_types.get(s_type, {}).get("name", "기본 검")
-        relic_pts = GameEngine.calculate_relic_points(sword)
+        relic_pts = GameEngine.calculate_relic_points(sword, run.relics or [])
         sell_p = GameEngine.calculate_sell_price(sword, run.relics or [])
 
         from app.utils.image_helper import get_sword_image_url
@@ -191,6 +191,21 @@ async def view_shop(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depe
 
     if not run or run.status != "playing":
         return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다. [새 게임]을 눌러 시작해주세요.")
+
+    # 일반 상점 / 유물 상점 선택 화면
+    if utterance not in ["일반 상점", "일반상점", "골드 상점", "골드상점"]:
+        return KakaoResponseBuilder.basic_card(
+            title="🏪 대장간 상점",
+            description=(
+                f"어느 상점으로 이동하시겠습니까?\n\n"
+                f"• 보유 골드: {run.gold:,}G\n"
+                f"• 보유 유물 포인트: {run.relic_points}pt"
+            ),
+            buttons=[
+                {"action": "message", "label": "💰 일반 상점 (골드)", "messageText": "일반 상점"},
+                {"action": "message", "label": "🏺 유물 상점 (포인트)", "messageText": "유물 상점"}
+            ]
+        )
 
     round_mult = (config.rules.get("shop_price_multiplier", 1.4) ** (run.round - 1))
 

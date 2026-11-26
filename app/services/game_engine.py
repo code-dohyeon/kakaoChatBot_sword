@@ -44,6 +44,10 @@ class GameEngine:
             boost_val = min(boost_stack * 0.15, 0.30)
             p_great += boost_val
 
+        # 5. 달인의 손길: +0~+4강 강화 시 성공 확률 +15%p
+        if "master_touch" in run_relics and sword_level <= 4:
+            p_success += 0.15
+
         # 재정규화 (합이 1.0이 되도록)
         new_total = p_destroy + p_success + p_great + p_keep
         return {
@@ -82,11 +86,16 @@ class GameEngine:
         prev_level = current_level
         to_level = current_level
         protected_by = None
+        bonus_gold = 0
+        scrap_gold = 0
 
         if result == "success":
             to_level = current_level + 1
             sword["level"] = to_level
             run.boost = 0 # 유지 스택 리셋
+            if "golden_whetstone" in relics:
+                bonus_gold = to_level * 30
+                run.gold = (run.gold or 0) + bonus_gold
         elif result == "great_success":
             gain = 2
             if "blacksmith_soul" in relics:
@@ -94,6 +103,9 @@ class GameEngine:
             to_level = current_level + gain
             sword["level"] = to_level
             run.boost = 0 # 유지 스택 리셋
+            if "golden_whetstone" in relics:
+                bonus_gold = to_level * 30
+                run.gold = (run.gold or 0) + bonus_gold
         elif result == "keep":
             if "tenacious_grip" in relics:
                 run.boost = min((run.boost or 0) + 1, 2)
@@ -103,7 +115,11 @@ class GameEngine:
                 result = "keep"
                 run.shield -= 1
                 protected_by = "guardians_grace"
-            # 2. 파괴 방지 부적 아이템 체크
+            # 2. 기적의 부적 유물 체크 (20% 확률로 파괴 무효화)
+            elif "miracle_charm" in relics and random.random() < 0.20:
+                result = "keep"
+                protected_by = "miracle_charm"
+            # 3. 파괴 방지 부적 아이템 체크
             elif "protect_destroy" in items:
                 result = "keep"
                 items.remove("protect_destroy")
@@ -111,6 +127,9 @@ class GameEngine:
                 protected_by = "protect_destroy"
             else:
                 # 실제 파괴
+                if "scrap_collector" in relics and current_level > 0:
+                    scrap_gold = current_level * 50
+                    run.gold = (run.gold or 0) + scrap_gold
                 run.last_destroyed_sword = {
                     "type": sword.get("type", "normal"),
                     "level": current_level
@@ -128,6 +147,8 @@ class GameEngine:
             "from_level": prev_level,
             "to_level": to_level,
             "protected_by": protected_by,
+            "bonus_gold": bonus_gold,
+            "scrap_gold": scrap_gold,
             "probabilities": probs
         }
         return result, details
@@ -150,9 +171,10 @@ class GameEngine:
         return price
 
     @staticmethod
-    def calculate_relic_points(sword: Dict[str, Any]) -> int:
+    def calculate_relic_points(sword: Dict[str, Any], relics: list = None) -> int:
         """
         변환 포인트 계산: 기본 검 1pt + 5레벨마다 +1pt
+        재활용의 미학 유물 보유 시 +1pt 추가
         """
         sword_type = sword.get("type", "normal")
         type_conf = config.sword_types.get(sword_type, config.sword_types.get("normal"))
@@ -160,7 +182,10 @@ class GameEngine:
         per_5 = type_conf.get("relic_points_per_5_levels", 1)
         level = sword.get("level", 0)
 
-        return base_pts + (level // 5) * per_5
+        pts = base_pts + (level // 5) * per_5
+        if relics and "recycling_art" in relics:
+            pts += 1
+        return pts
 
     @staticmethod
     def get_target_gold_for_round(round_num: int) -> int:
