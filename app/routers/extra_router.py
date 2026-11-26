@@ -1026,9 +1026,9 @@ async def view_collection(payload: Dict[str, Any] = Body(...), db: AsyncSession 
         title="📚 대장간 도감",
         description=desc,
         buttons=[
-            {"action": "message", "label": "🗡️ 검 도감", "messageText": "검 도감"},
-            {"action": "message", "label": "🏺 유물 도감", "messageText": "유물 도감"},
-            {"action": "message", "label": "🎲 이벤트 도감", "messageText": "이벤트 도감"}
+            {"action": "message", "label": "🗡️ 검 도감", "messageText": "도감:검"},
+            {"action": "message", "label": "🏺 유물 도감", "messageText": "도감:유물"},
+            {"action": "message", "label": "🎲 이벤트 도감", "messageText": "도감:이벤트"}
         ]
     )
 
@@ -1157,7 +1157,7 @@ async def fallback_handler(payload: Dict[str, Any] = Body(...), db: AsyncSession
             return await show_more_menu(payload)
         if utterance.startswith("이벤트선택"):
             return await handle_event_choice(payload, db)
-        if utterance in ["도감", "검 도감", "검도감", "유물 도감", "유물도감", "이벤트 도감", "이벤트도감"]:
+        if utterance.startswith("도감") or utterance in ["검 도감", "검도감", "유물 도감", "유물도감", "이벤트 도감", "이벤트도감"]:
             return await view_collection(payload, db)
         if utterance.startswith("칭호") or utterance.startswith("업적"):
             return await manage_titles(payload, db)
