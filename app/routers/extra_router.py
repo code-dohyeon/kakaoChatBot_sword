@@ -1129,6 +1129,20 @@ async def manage_titles(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
     )
 
 
+@router.post("/menu")
+async def show_more_menu(payload: Dict[str, Any] = None):
+    """더보기 / 전체 메뉴 안내 카드"""
+    return KakaoResponseBuilder.basic_card(
+        title="📋 대장간 더보기 메뉴",
+        description="원하시는 기능을 선택해주세요!",
+        buttons=[
+            {"action": "message", "label": "📚 도감 보기", "messageText": "도감"},
+            {"action": "message", "label": "🏅 칭호 & 업적", "messageText": "칭호"},
+            {"action": "message", "label": "📖 게임 규칙", "messageText": "규칙"}
+        ]
+    )
+
+
 @router.post("/fallback")
 async def fallback_handler(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
     """
@@ -1138,7 +1152,9 @@ async def fallback_handler(payload: Dict[str, Any] = Body(...), db: AsyncSession
     try:
         utterance = get_utterance(payload)
 
-        # 0. 라운드 이벤트 선택 & 도감 & 칭호/업적 조회
+        # 0. 더보기 메뉴 & 라운드 이벤트 선택 & 도감 & 칭호/업적 조회
+        if utterance in ["더보기", "메뉴", "전체메뉴", "전체 메뉴"]:
+            return await show_more_menu(payload)
         if utterance.startswith("이벤트선택"):
             return await handle_event_choice(payload, db)
         if utterance in ["도감", "검 도감", "검도감", "유물 도감", "유물도감", "이벤트 도감", "이벤트도감"]:
