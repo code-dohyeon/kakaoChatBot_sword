@@ -63,13 +63,18 @@ async def startup_event():
     # SQLite/PostgreSQL 테이블 생성
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # 기존 DB 테이블에 round_sales_gold 컬럼이 없을 경우 자동 추가
-        try:
-            from sqlalchemy import text
-            await conn.execute(text("ALTER TABLE runs ADD COLUMN round_sales_gold INTEGER DEFAULT 0"))
-            logger.info("✅ Successfully added 'round_sales_gold' column to runs table.")
-        except Exception:
-            pass  # 이미 컬럼이 존재하면 통과
+        # 기존 DB 테이블에 누락된 컬럼이 없을 경우 자동 추가
+        from sqlalchemy import text
+        for col_sql in [
+            "ALTER TABLE runs ADD COLUMN round_sales_gold INTEGER DEFAULT 0",
+            "ALTER TABLE runs ADD COLUMN round_event JSON",
+            "ALTER TABLE runs ADD COLUMN meta_counters JSON",
+        ]:
+            try:
+                await conn.execute(text(col_sql))
+                logger.info(f"✅ Migration applied: {col_sql}")
+            except Exception:
+                pass  # 이미 컬럼이 존재하면 통과
 
 app.include_router(kakao_router)
 app.include_router(extra_router)

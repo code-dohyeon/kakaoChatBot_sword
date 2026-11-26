@@ -176,5 +176,117 @@
     { "min_level": 9, "name": "룬 블레이드", "rank_name": "영웅", "color": "#9B59B6" },
     { "min_level": 12, "name": "용살검", "rank_name": "전설", "color": "#F39C12" },
     { "min_level": 15, "name": "신화의 성검", "rank_name": "신화", "color": "#E74C3C" }
+  ],
+  "round_events": [
+    {
+      "id": "cursed_anvil",
+      "name": "저주받은 모루",
+      "category": "도박",
+      "weight": 20,
+      "description": "불길한 기운이 감도는 모루입니다. 이번 라운드 대성공 확률 +10%p, 파괴 확률 +10%p",
+      "choices": [
+        { "id": "accept", "label": "😈 저주를 받아들인다", "effect": { "great_success_add": 0.10, "destroy_add": 0.10 } },
+        { "id": "ignore", "label": "🚶 무시하고 지나간다", "effect": {} }
+      ]
+    },
+    {
+      "id": "storm",
+      "name": "폭풍",
+      "category": "위험과 보상",
+      "weight": 20,
+      "description": "거센 폭풍이 몰아칩니다. 이번 라운드 파괴 확률 +5%p, 검 판매가 +30%",
+      "choices": [
+        { "id": "brave", "label": "⛈️ 폭풍 속에서 단련한다", "effect": { "destroy_add": 0.05, "sell_multiplier": 1.30 } },
+        { "id": "shelter", "label": "🏠 대장간 문을 닫는다", "effect": {} }
+      ]
+    },
+    {
+      "id": "wandering_merchant",
+      "name": "떠돌이 상인",
+      "category": "선택",
+      "weight": 20,
+      "description": "수상한 보따리를 멘 상인이 찾아왔습니다.",
+      "choices": [
+        { "id": "exchange_gold", "label": "💰 유물 포인트 2pt → 1,000G 교환", "effect": { "relic_points_cost": 2, "gold_gain": 1000 } },
+        { "id": "shop_discount", "label": "🏷️ 이번 라운드 상점 30% 할인", "effect": { "shop_discount": 0.30 } },
+        { "id": "pass", "label": "👋 그냥 보낸다", "effect": {} }
+      ]
+    },
+    {
+      "id": "blacksmith_blessing",
+      "name": "대장장이의 축복",
+      "category": "보너스",
+      "weight": 15,
+      "description": "고대 대장장이의 영혼이 깃듭니다. 이번 라운드 첫 강화는 반드시 성공합니다!",
+      "choices": [
+        { "id": "receive", "label": "✨ 축복을 받는다", "effect": { "guaranteed_first_success": true } }
+      ]
+    },
+    {
+      "id": "mystic_spring",
+      "name": "신비한 샘",
+      "category": "보너스",
+      "weight": 15,
+      "description": "영롱하게 빛나는 샘물입니다. 보유한 검 1자루를 +1강화합니다.",
+      "choices": [
+        { "id": "dip", "label": "💧 검을 담근다 (가장 높은 검 +1)", "effect": { "upgrade_best_sword": 1 } },
+        { "id": "skip", "label": "🚶 마시지 않는다", "effect": {} }
+      ]
+    },
+    {
+      "id": "shady_gambler",
+      "name": "수상한 도박꾼",
+      "category": "도박",
+      "weight": 10,
+      "description": "검 1자루를 걸고 50% 확률로 두 배 가치(또는 +2강)가 되거나 소멸합니다!",
+      "choices": [
+        { "id": "gamble", "label": "🎲 1번 검을 건다 (50% 대박/소멸)", "effect": { "gamble_sword": true } },
+        { "id": "decline", "label": "🙅 거절한다", "effect": {} }
+      ]
+    }
+  ],
+  "achievements": [
+    { "id": "ach_01", "category": "강화", "title": "운 좋은 대장장이", "condition": "대성공 첫 경험", "hidden": false },
+    { "id": "ach_02", "category": "강화", "title": "불붙은 망치", "condition": "연속 성공 3회", "hidden": false },
+    { "id": "ach_03", "category": "강화", "title": "신의 손", "condition": "연속 성공 5회", "hidden": false },
+    { "id": "ach_04", "category": "강화", "title": "견습 대장장이", "condition": "+5 첫 달성", "hidden": false },
+    { "id": "ach_05", "category": "강화", "title": "숙련 대장장이", "condition": "+10 첫 달성", "hidden": false },
+    { "id": "ach_06", "category": "강화", "title": "명장", "condition": "+15 첫 달성", "hidden": false },
+    { "id": "ach_07", "category": "강화", "title": "전설의 대장장이", "condition": "+20 첫 달성", "hidden": false },
+    { "id": "ach_08", "category": "강화", "title": "한 방에 도약", "condition": "한 번의 강화로 +3 상승", "hidden": false },
+    { "id": "ach_09", "category": "강화", "title": "기적의 순간", "condition": "성공 확률 25% 이하에서 성공", "hidden": false },
+    { "id": "ach_10", "category": "강화", "title": "전설의 목격자", "condition": "전설의 대성공 경험", "hidden": true },
+    { "id": "ach_11", "category": "파괴", "title": "눈물 젖은 모루", "condition": "첫 파괴", "hidden": false },
+    { "id": "ach_12", "category": "파괴", "title": "불운의 아이콘", "condition": "연속 파괴 3회", "hidden": false },
+    { "id": "ach_13", "category": "파괴", "title": "무너진 야망", "condition": "+10 이상 검 파괴", "hidden": false },
+    { "id": "ach_14", "category": "파괴", "title": "처절한 최후", "condition": "+15 이상 검 파괴", "hidden": false },
+    { "id": "ach_15", "category": "파괴", "title": "파괴왕", "condition": "한 판에서 검 20자루 파괴", "hidden": false },
+    { "id": "ach_16", "category": "파괴", "title": "시간을 되돌린 자", "condition": "되돌리기 아이템으로 파괴된 검 복구", "hidden": false },
+    { "id": "ach_17", "category": "파괴", "title": "아슬아슬 생존", "condition": "파괴 보호 아이템으로 파괴를 막음", "hidden": false },
+    { "id": "ach_18", "category": "라운드", "title": "초보 납품업자", "condition": "3라운드 클리어", "hidden": false },
+    { "id": "ach_19", "category": "라운드", "title": "단골 납품업자", "condition": "5라운드 클리어", "hidden": false },
+    { "id": "ach_20", "category": "라운드", "title": "정복자", "condition": "10라운드 클리어", "hidden": false },
+    { "id": "ach_21", "category": "라운드", "title": "오뚝이", "condition": "검이 모두 파괴된 상태에서 그 라운드 납품 성공", "hidden": false },
+    { "id": "ach_22", "category": "라운드", "title": "대부호", "condition": "한 라운드에서 목표 골드의 3배 보유", "hidden": false },
+    { "id": "ach_23", "category": "라운드", "title": "보스 슬레이어", "condition": "보스 라운드 첫 클리어", "hidden": false },
+    { "id": "ach_24", "category": "라운드", "title": "보스 헌터", "condition": "한 판에서 보스 라운드 3개 모두 클리어", "hidden": false },
+    { "id": "ach_25", "category": "라운드", "title": "구두쇠", "condition": "상점 구매 없이 라운드 클리어", "hidden": false },
+    { "id": "ach_26", "category": "라운드", "title": "무결점 장인", "condition": "파괴 0회로 10라운드 클리어", "hidden": true },
+    { "id": "ach_27", "category": "상점 · 유물", "title": "상인의 영혼", "condition": "한 라운드에 검 5자루 판매", "hidden": false },
+    { "id": "ach_28", "category": "상점 · 유물", "title": "연금술사", "condition": "한 판에서 유물 포인트 누적 10", "hidden": false },
+    { "id": "ach_29", "category": "상점 · 유물", "title": "풀 세팅", "condition": "유물 슬롯 4개를 모두 채움", "hidden": false },
+    { "id": "ach_30", "category": "상점 · 유물", "title": "단골손님", "condition": "상점에서 누적 아이템 10개 구매", "hidden": false },
+    { "id": "ach_31", "category": "상점 · 유물", "title": "유물 수집가", "condition": "유물 7종을 모두 구매해 본 경험", "hidden": false },
+    { "id": "ach_32", "category": "수집", "title": "수집 입문", "condition": "도감 25% 달성", "hidden": false },
+    { "id": "ach_33", "category": "수집", "title": "수집가", "condition": "도감 50% 달성", "hidden": false },
+    { "id": "ach_34", "category": "수집", "title": "도감 마스터", "condition": "도감 100% 달성", "hidden": false },
+    { "id": "ach_35", "category": "수집", "title": "나뭇가지 장인", "condition": "나뭇가지 검을 +10까지 강화", "hidden": false },
+    { "id": "ach_36", "category": "수집", "title": "꼬치의 달인", "condition": "꼬챙이 검을 +10까지 강화", "hidden": false },
+    { "id": "ach_37", "category": "수집", "title": "모험가", "condition": "라운드 이벤트 6종을 모두 경험", "hidden": false },
+    { "id": "ach_38", "category": "이벤트", "title": "도박의 신", "condition": "수상한 도박꾼에서 2연속 성공", "hidden": true },
+    { "id": "ach_39", "category": "이벤트", "title": "빈손의 도박꾼", "condition": "수상한 도박꾼에서 검이 소멸", "hidden": true },
+    { "id": "ach_40", "category": "친구", "title": "동료 대장장이", "condition": "친구 1명 등록", "hidden": false },
+    { "id": "ach_41", "category": "친구", "title": "대장간 길드장", "condition": "친구 10명 등록", "hidden": false },
+    { "id": "ach_42", "category": "친구", "title": "대장간 일등", "condition": "친구 랭킹 1위 달성", "hidden": false }
   ]
 }

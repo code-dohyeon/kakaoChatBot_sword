@@ -13,6 +13,8 @@ class GameConfig:
         self.relics = {r["id"]: r for r in config_data.get("relics", [])}
         self.shop_items = {item["id"]: item for item in config_data.get("shop_items", [])}
         self.sword_ranks = config_data.get("sword_ranks", [])
+        self.round_events = {e["id"]: e for e in config_data.get("round_events", [])}
+        self.achievements = {a["id"]: a for a in config_data.get("achievements", [])}
 
     @classmethod
     def load(cls, path: Path = CONFIG_FILE_PATH) -> "GameConfig":

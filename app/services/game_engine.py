@@ -5,7 +5,28 @@ from app.models.game import Run, EnhanceLog
 
 class GameEngine:
     @staticmethod
-    def calculate_enhance_probabilities(sword_level: int, run_relics: list, boost_stack: int = 0) -> Dict[str, float]:
+    def draw_round_event() -> Dict[str, Any]:
+        """가중치 기반으로 라운드 이벤트 1종 랜덤 추첨"""
+        events = list(config.round_events.values())
+        if not events:
+            return {}
+        weights = [e.get("weight", 10) for e in events]
+        chosen_event = random.choices(events, weights=weights, k=1)[0]
+        return {
+            "event_id": chosen_event["id"],
+            "chosen": False,
+            "choice_id": None,
+            "effect": {},
+            "first_enhance_used": False,
+        }
+
+    @staticmethod
+    def calculate_enhance_probabilities(
+        sword_level: int,
+        run_relics: list,
+        boost_stack: int = 0,
+        round_event: Dict[str, Any] = None,
+    ) -> Dict[str, float]:
         """
         GDD 3-1 기반 강화 확률 계산:
         - 파괴 가중치: 레벨당 0.03 증가 (최대 0.4)
@@ -48,6 +69,14 @@ class GameEngine:
         if "master_touch" in run_relics and sword_level <= 4:
             p_success += 0.15
 
+        # 6. 라운드 이벤트 효과 반영
+        if round_event and round_event.get("chosen"):
+            ev_eff = round_event.get("effect") or {}
+            if "great_success_add" in ev_eff:
+                p_great += ev_eff["great_success_add"]
+            if "destroy_add" in ev_eff:
+                p_destroy += ev_eff["destroy_add"]
+
         # 재정규화 (합이 1.0이 되도록)
         new_total = p_destroy + p_success + p_great + p_keep
         return {
@@ -70,18 +99,27 @@ class GameEngine:
         current_level = sword["level"]
         relics = run.relics or []
         items = run.items or []
+        round_event = getattr(run, "round_event", None) or {}
 
-        probs = cls.calculate_enhance_probabilities(current_level, relics, run.boost or 0)
-        roll = random.random()
+        probs = cls.calculate_enhance_probabilities(current_level, relics, run.boost or 0, round_event)
 
-        result = "destroy"
-        cumulative = 0.0
+        # 대장장이의 축복 이벤트: 이번 라운드 첫 강화 반드시 성공
+        ev_eff = round_event.get("effect") or {}
+        if round_event.get("chosen") and ev_eff.get("guaranteed_first_success") and not round_event.get("first_enhance_used"):
+            result = "success"
+            round_event["first_enhance_used"] = True
+            run.round_event = dict(round_event)
+        else:
+            roll = random.random()
 
-        for outcome in ["success", "great_success", "keep", "destroy"]:
-            cumulative += probs[outcome]
-            if roll <= cumulative:
-                result = outcome
-                break
+            result = "destroy"
+            cumulative = 0.0
+
+            for outcome in ["success", "great_success", "keep", "destroy"]:
+                cumulative += probs[outcome]
+                if roll <= cumulative:
+                    result = outcome
+                    break
 
         prev_level = current_level
         to_level = current_level
@@ -154,10 +192,10 @@ class GameEngine:
         return result, details
 
     @staticmethod
-    def calculate_sell_price(sword: Dict[str, Any], relics: list) -> int:
+    def calculate_sell_price(sword: Dict[str, Any], relics: list, round_event: Dict[str, Any] = None) -> int:
         """
         판매가 계산: 100G * (1.6 ^ level)
-        상인의 혀 유물 보유 시 +20%
+        상인의 혀 유물 보유 시 +20%, 라운드 이벤트(폭풍 등) 배율 반영
         """
         sword_type = sword.get("type", "normal")
         type_conf = config.sword_types.get(sword_type, config.sword_types.get("normal"))
@@ -168,6 +206,10 @@ class GameEngine:
         price = int(base_price * (multiplier ** level))
         if "merchants_tongue" in relics:
             price = int(price * 1.20)
+        if round_event and round_event.get("chosen"):
+            ev_eff = round_event.get("effect") or {}
+            if "sell_multiplier" in ev_eff:
+                price = int(price * ev_eff["sell_multiplier"])
         return price
 
     @staticmethod

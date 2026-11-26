@@ -102,17 +102,21 @@ async def test_all_phase6_scenarios():
             active_run.gold = 1500 # R1 목표(800G) 충족 상황으로 세팅
             await session.commit()
 
+        def get_card(resp):
+            out = resp.json()["template"]["outputs"][0]
+            return out.get("basicCard", out.get("textCard", {}))
+
         # 3-1. my-swords 호출 시 골드 충족에 따른 납품 권장 안내 확인
         resp = await client.post("/api/kakao/my-swords", json=make_kakao_payload(test_user, "내 검 보기"))
         assert resp.status_code == 200
-        desc = resp.json()["template"]["outputs"][0]["basicCard"]["description"]
+        desc = get_card(resp)["description"]
         assert "목표(800G)를 달성했습니다" in desc or "납품·마감" in desc
         print("  ✓ 보유 검 0개 + 목표 골드 충족 시 납품 마감 안내 카드 노출 확인")
 
         # 3-2. enhance 호출 시 검 0개 예외 방어 확인
         resp = await client.post("/api/kakao/enhance", json=make_kakao_payload(test_user, "1번 강화"))
         assert resp.status_code == 200
-        desc = resp.json()["template"]["outputs"][0]["basicCard"]["description"]
+        desc = get_card(resp)["description"]
         assert "강화할 수 있는 검이 없습니다" in desc
         print("  ✓ 보유 검 0개 상태에서 강화 요청 시 친절한 가이드 카드 노출 확인")
 
@@ -130,7 +134,7 @@ async def test_all_phase6_scenarios():
         # 기본 검 구매 (300G)
         resp = await client.post("/api/kakao/shop", json=make_kakao_payload(test_user, "아이템구매 sword_normal"))
         assert resp.status_code == 200
-        card = resp.json()["template"]["outputs"][0]["basicCard"]
+        card = get_card(resp)
         assert "구매 완료" in card["title"]
         print("  ✓ 골드로 기본 검 추가 구매 성공 (1500G -> 1200G, 검 1개 획득)")
 
@@ -142,7 +146,7 @@ async def test_all_phase6_scenarios():
         # 파괴 되돌리기 주문서 구매 시도 (1200G 필요하나 현재 600G -> 잔액 부족 예외 테스트)
         resp = await client.post("/api/kakao/shop", json=make_kakao_payload(test_user, "아이템구매 revert_destroy"))
         assert resp.status_code == 200
-        card = resp.json()["template"]["outputs"][0]["basicCard"]
+        card = get_card(resp)
         assert "골드 부족" in card["title"]
         print("  ✓ 골드 부족 시 구매 차단 및 안내 카드 정상 반환 확인")
 
@@ -166,7 +170,7 @@ async def test_all_phase6_scenarios():
         # 되돌리기 실행
         resp = await client.post("/api/kakao/enhance", json=make_kakao_payload(test_user, "되돌리기 사용"))
         assert resp.status_code == 200
-        card = resp.json()["template"]["outputs"][0]["basicCard"]
+        card = get_card(resp)
         assert "기적의 검 복구 성공" in card["title"]
         assert "+7강" in card["description"]
         print("  ✓ +7강 파괴 검 완벽 복구 성공 및 아이템 정상 차감")
@@ -174,7 +178,7 @@ async def test_all_phase6_scenarios():
         # 다시 되돌리기 시도 (아이템 소진 상태 -> 예외 방어)
         resp = await client.post("/api/kakao/enhance", json=make_kakao_payload(test_user, "되돌리기 사용"))
         assert resp.status_code == 200
-        card = resp.json()["template"]["outputs"][0]["basicCard"]
+        card = get_card(resp)
         assert "복구 실패" in card["title"]
         print("  ✓ 복구권 소진 시 중복 복원 방어 확인")
 
@@ -197,13 +201,13 @@ async def test_all_phase6_scenarios():
         # 4번째 유물(shield_charm) 장착
         resp = await client.post("/api/kakao/shop", json=make_kakao_payload(test_user, "유물구매 shield_charm"))
         assert resp.status_code == 200
-        assert "장착 완료" in resp.json()["template"]["outputs"][0]["basicCard"]["title"]
+        assert "장착 완료" in get_card(resp)["title"]
         print("  ✓ 4번째 유물 장착 성공 (슬롯 4/4)")
 
         # 5번째 유물(guardians_grace) 장착 시도 -> 슬롯 초과 방어
         resp = await client.post("/api/kakao/shop", json=make_kakao_payload(test_user, "유물구매 guardians_grace"))
         assert resp.status_code == 200
-        assert "유물 슬롯 초과" in resp.json()["template"]["outputs"][0]["basicCard"]["title"]
+        assert "유물 슬롯 초과" in get_card(resp)["title"]
         print("  ✓ 5번째 유물 장착 시 슬롯 초과 예외 정상 방어")
 
         # -----------------------------------------------------------

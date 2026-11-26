@@ -19,6 +19,7 @@ class User(Base):
 
     active_run = relationship("Run", back_populates="user", uselist=False)
     ranking = relationship("Ranking", back_populates="user", uselist=False)
+    meta = relationship("UserMeta", back_populates="user", uselist=False)
 
 class Run(Base):
     __tablename__ = "runs"
@@ -43,6 +44,8 @@ class Run(Base):
     destroyed_count = Column(Integer, default=0)
     status = Column(String(32), default="playing") # playing, cleared, failed
     last_destroyed_sword = Column(JSON, nullable=True) # 되돌리기 주문서용 마지막 파괴 검 정보
+    round_event = Column(JSON, nullable=True) # 현재 라운드 이벤트 상태
+    meta_counters = Column(JSON, default=dict) # 업적 판정용 런 내 카운터
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="active_run")
@@ -89,3 +92,19 @@ class Ranking(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="ranking")
+
+class UserMeta(Base):
+    """유저 영구 메타 데이터 (도감, 업적, 칭호, 누적 통계)"""
+    __tablename__ = "user_meta"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, index=True, nullable=False)
+    collected_swords = Column(JSON, default=list)  # ["normal:0", "stick:5", ...]
+    collected_relics = Column(JSON, default=list)  # ["twin_rune", ...]
+    collected_events = Column(JSON, default=list)  # ["cursed_anvil", ...]
+    unlocked_titles = Column(JSON, default=list)   # ["ach_01", ...]
+    equipped_title = Column(String(64), nullable=True) # 장착 중인 칭호 ID (예: "ach_01")
+    stats = Column(JSON, default=dict)             # {"total_shop_buys": 0, ...}
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="meta")

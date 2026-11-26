@@ -64,6 +64,8 @@ class RunService:
             existing.boost = 0
             existing.destroyed_count = 0
             existing.last_destroyed_sword = None
+            existing.round_event = GameEngine.draw_round_event()
+            existing.meta_counters = {"win_streak": 0, "destroy_streak": 0, "round_sells": 0, "round_bought": False, "total_relic_pts": 0, "gamble_streak": 0}
             existing.status = "playing"
             await db.commit()
             return existing
@@ -80,6 +82,8 @@ class RunService:
             shield=0,
             boost=0,
             destroyed_count=0,
+            round_event=GameEngine.draw_round_event(),
+            meta_counters={"win_streak": 0, "destroy_streak": 0, "round_sells": 0, "round_bought": False, "total_relic_pts": 0, "gamble_streak": 0},
             status="playing"
         )
         db.add(new_run)
@@ -109,6 +113,11 @@ class RunService:
         # 다음 라운드 진행
         run.round += 1
         run.round_sales_gold = 0 # 다음 라운드 판매 수익 초기화
+        run.round_event = GameEngine.draw_round_event()
+        counters = dict(getattr(run, "meta_counters", None) or {})
+        counters["round_sells"] = 0
+        counters["round_bought"] = False
+        run.meta_counters = counters
         # 검 지급 (기존 검에 누적)
         current_swords = list(run.swords or [])
         start_id = max([s.get("id", 0) for s in current_swords], default=0) + 1

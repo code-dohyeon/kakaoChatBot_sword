@@ -5,6 +5,8 @@ from app.db.session import get_db
 from app.utils.kakao_builder import KakaoResponseBuilder
 from app.services.run_service import RunService
 from app.services.game_engine import GameEngine
+from app.services.collection_service import CollectionService
+from app.services.achievement_service import AchievementService
 from app.core.config import config
 from app.utils.image_helper import get_sword_image_url
 from app.models.game import EnhanceLog
@@ -22,6 +24,23 @@ def get_user_key(payload: Dict[str, Any]) -> str:
 def get_utterance(payload: Dict[str, Any]) -> str:
     return payload.get("userRequest", {}).get("utterance", "").strip()
 
+def _append_round_event_ui(desc: str, default_buttons: list, run) -> tuple[str, list]:
+    """라운드 시작 시 추첨된 이벤트가 아직 미선택 상태면 안내 문구와 선택 버튼을 구성"""
+    ev_state = getattr(run, "round_event", None) or {}
+    ev_id = ev_state.get("event_id")
+    if ev_id and not ev_state.get("chosen"):
+        ev_conf = config.round_events.get(ev_id)
+        if ev_conf:
+            desc += f"\n\n🎲 [라운드 이벤트: {ev_conf['name']}]\n{ev_conf['description']}"
+            ev_buttons = [
+                {"action": "message", "label": c["label"][:14], "messageText": f"이벤트선택 {c['id']}"}
+                for c in ev_conf.get("choices", [])[:3]
+            ]
+            if ev_buttons:
+                return desc, ev_buttons
+    return desc, default_buttons
+
+
 @router.post("/start")
 async def start_game(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depends(get_db)):
     """게임 시작 / 새 게임 블록"""
@@ -33,6 +52,12 @@ async def start_game(payload: Dict[str, Any] = Body(...), db: AsyncSession = Dep
         user = await RunService.get_or_create_user(db, user_key)
         run = await RunService.start_new_run(db, user.id)
 
+        # 도감 초기 등록 (기본 검 0강 + 시작 이벤트)
+        await CollectionService.register_sword(db, user.id, "normal", 0)
+        ev_id = (getattr(run, "round_event", None) or {}).get("event_id")
+        is_new_ev, _ = (await CollectionService.register_event(db, user.id, ev_id)) if ev_id else (False, [])
+        await db.commit()
+
         target_gold = GameEngine.get_target_gold_for_round(run.round)
         title = f"⚔️ 검 강화 대장간 (R{run.round}/{config.rules.get('max_round', 10)})"
         desc = (
@@ -42,13 +67,15 @@ async def start_game(payload: Dict[str, Any] = Body(...), db: AsyncSession = Dep
             f"• 이번 라운드 목표: {target_gold:,}G\n\n"
             f"하단의 [강화하기] 또는 [내 검 보기]를 눌러 검을 골라보세요!"
         )
+        default_buttons = [
+            {"action": "message", "label": "🗡️ 강화할 검 고르기", "messageText": "내 검 보기"},
+            {"action": "message", "label": "📖 게임 규칙", "messageText": "규칙"}
+        ]
+        desc, buttons = _append_round_event_ui(desc, default_buttons, run)
         return KakaoResponseBuilder.basic_card(
             title=title,
             description=desc,
-            buttons=[
-                {"action": "message", "label": "🗡️ 강화할 검 고르기", "messageText": "내 검 보기"},
-                {"action": "message", "label": "📖 게임 규칙", "messageText": "규칙"}
-            ]
+            buttons=buttons
         )
 
 @router.post("/my-swords")
@@ -90,9 +117,9 @@ async def view_my_swords(payload: Dict[str, Any] = Body(...), db: AsyncSession =
         lvl = sword.get("level", 0)
         s_type = sword.get("type", "normal")
         type_name = config.sword_types.get(s_type, {}).get("name", "기본 검")
-        sell_p = GameEngine.calculate_sell_price(sword, run.relics or [])
+        sell_p = GameEngine.calculate_sell_price(sword, run.relics or [], getattr(run, "round_event", None))
         relic_pts = GameEngine.calculate_relic_points(sword, run.relics or [])
-        probs = GameEngine.calculate_enhance_probabilities(lvl, run.relics or [], run.boost or 0)
+        probs = GameEngine.calculate_enhance_probabilities(lvl, run.relics or [], run.boost or 0, getattr(run, "round_event", None))
 
         desc = (
             f"등급: +{lvl}강 ({type_name})\n"
@@ -228,6 +255,7 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
             # [수정] run.swords 변경사항을 DB 세션에 확실히 반영
             flag_modified(run, "swords")
             flag_modified(run, "items")
+            flag_modified(run, "round_event")
             db.add(run)
 
             # 로그 저장 (최고 기록 1개 보존 + 최근 20개 유지)
@@ -240,17 +268,34 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
                 to_level=details["to_level"],
                 result=result
             )
+            # 도감 등록 (성공/대성공 시) & 업적 판정
+            new_collection_note = ""
+            unlocked_titles = []
+            if result in ("success", "great_success"):
+                is_new_sw, new_titles = await CollectionService.register_sword(db, user.id, s_type, details["to_level"])
+                if is_new_sw:
+                    type_name = config.sword_types.get(s_type, {}).get("name", "검")
+                    new_collection_note += f"\n🆕 NEW! [{type_name} +{details['to_level']}강] 도감 등록!"
+                unlocked_titles.extend(new_titles)
+
+            ach_titles = await AchievementService.on_enhance(
+                db, user.id, run, prev_level, details["to_level"], result, details
+            )
+            unlocked_titles.extend(ach_titles)
+            if unlocked_titles:
+                new_collection_note += f"\n🏅 칭호 해금: {', '.join(dict.fromkeys(unlocked_titles))}"
+
             await db.commit()
 
             # 다음 강화 확률 및 검 가치(판매가, 변환포인트) 계산 (파괴되지 않았을 때)
             info_str = ""
             if result != "destroy":
                 cur_sword = run.swords[sword_idx]
-                sell_p = GameEngine.calculate_sell_price(cur_sword, run.relics or [])
+                sell_p = GameEngine.calculate_sell_price(cur_sword, run.relics or [], getattr(run, "round_event", None))
                 relic_p = GameEngine.calculate_relic_points(cur_sword, run.relics or [])
 
                 next_probs = GameEngine.calculate_enhance_probabilities(
-                    details["to_level"], run.relics or [], run.boost or 0
+                    details["to_level"], run.relics or [], run.boost or 0, getattr(run, "round_event", None)
                 )
                 p_s = int(next_probs["success"] * 100)
                 p_gs = int(next_probs["great_success"] * 100)
@@ -264,27 +309,27 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
             # 결과 카드 문구
             if result == "success":
                 title = f"✨ 강화 성공! (+{details['to_level']}강)"
-                desc = f"+{prev_level}강에서 +{details['to_level']}강으로 상승했습니다!{info_str}"
+                desc = f"+{prev_level}강에서 +{details['to_level']}강으로 상승했습니다!{new_collection_note}{info_str}"
             elif result == "great_success":
                 title = f"💥 대성공 폭발! (+{details['to_level']}강)"
-                desc = f"엄청난 기운으로 레벨이 대폭 상승했습니다! (+{prev_level} → +{details['to_level']}){info_str}"
+                desc = f"엄청난 기운으로 레벨이 대폭 상승했습니다! (+{prev_level} → +{details['to_level']}){new_collection_note}{info_str}"
             elif result == "keep":
                 title = "🛡️ 강화 유지"
                 if details.get("protected_by"):
-                    desc = f"파괴 위험이었으나 [{details['protected_by']}] 효과로 검을 지켰습니다!{info_str}"
+                    desc = f"파괴 위험이었으나 [{details['protected_by']}] 효과로 검을 지켰습니다!{new_collection_note}{info_str}"
                 else:
-                    desc = f"아쉽게도 레벨에 변화가 없습니다. (+{prev_level}강 유지){info_str}"
+                    desc = f"아쉽게도 레벨에 변화가 없습니다. (+{prev_level}강 유지){new_collection_note}{info_str}"
             else: # destroy
                 if len(run.swords) == 0:
                     title = "💥 콰앙! 마지막 검이 파괴되었습니다..."
                     target_gold = GameEngine.get_target_gold_for_round(run.round)
                     if run.gold >= target_gold:
-                        desc = f"+{prev_level}강 검이 파괴되었습니다. (남은 검: 0개)\n\n다행히 보유 골드({run.gold:,}G)가 목표({target_gold:,}G)를 충족합니다! [납품·마감]이 가능합니다."
+                        desc = f"+{prev_level}강 검이 파괴되었습니다. (남은 검: 0개)\n\n다행히 보유 골드({run.gold:,}G)가 목표({target_gold:,}G)를 충족합니다! [납품·마감]이 가능합니다.{new_collection_note}"
                     else:
-                        desc = f"+{prev_level}강 검이 파괴되었습니다. (남은 검: 0개)\n\n모든 검을 잃었습니다. 상점에서 검을 구매하거나 새 게임을 시작해주세요."
+                        desc = f"+{prev_level}강 검이 파괴되었습니다. (남은 검: 0개)\n\n모든 검을 잃었습니다. 상점에서 검을 구매하거나 새 게임을 시작해주세요.{new_collection_note}"
                 else:
                     title = "💨 콰앙! 검이 파괴되었습니다..."
-                    desc = f"+{prev_level}강 검이 산산조각 났습니다. (남은 검: {len(run.swords)}개)"
+                    desc = f"+{prev_level}강 검이 산산조각 났습니다. (남은 검: {len(run.swords)}개){new_collection_note}"
 
             buttons = []
             if result != "destroy":
@@ -365,13 +410,15 @@ async def revert_destroyed_sword(payload: Dict[str, Any] = Body(...), db: AsyncS
         run.last_destroyed_sword = None
         if run.destroyed_count and run.destroyed_count > 0:
             run.destroyed_count -= 1
+        ach_titles = await AchievementService.on_revert_sword(db, user.id)
         await db.commit()
 
         restored_idx = len(swords)
         img_url = get_sword_image_url(lvl, s_type)
+        ach_note = f"\n🏅 칭호 해금: {', '.join(ach_titles)}" if ach_titles else ""
         return KakaoResponseBuilder.basic_card(
             title="🔮 기적의 검 복구 성공!",
-            description=f"신비한 주문서의 힘으로 +{lvl}강 {type_name}이(가) 완벽히 복원되었습니다!\n(보유 검: {len(swords)}개)",
+            description=f"신비한 주문서의 힘으로 +{lvl}강 {type_name}이(가) 완벽히 복원되었습니다!\n(보유 검: {len(swords)}개){ach_note}",
             thumbnail_url=img_url,
             buttons=[
                 {"action": "message", "label": f"{restored_idx}번 계속 강화", "messageText": f"{restored_idx}번 강화"},
@@ -436,6 +483,7 @@ async def finish_round(payload: Dict[str, Any] = Body(...), db: AsyncSession = D
             return KakaoResponseBuilder.basic_card(title=title, description=desc, buttons=buttons)
 
         # 2단계: 최종 납품 실행
+        cleared_round = run.round
         success, msg = await RunService.advance_round(db, run)
         if not success:
             return KakaoResponseBuilder.basic_card(
@@ -444,28 +492,43 @@ async def finish_round(payload: Dict[str, Any] = Body(...), db: AsyncSession = D
                 buttons=[{"action": "message", "label": "🔄 다시 도전하기", "messageText": "새 게임"}]
             )
         elif run.status == "cleared":
+            ach_titles = await AchievementService.on_round_clear(db, user.id, run, cleared_round, True, target_gold)
+            await db.commit()
+            ach_note = f"\n\n🏅 칭호 해금: {', '.join(ach_titles)}" if ach_titles else ""
             return KakaoResponseBuilder.basic_card(
                 title="🎉 게임 클리어!",
-                description=msg,
+                description=f"{msg}{ach_note}",
                 buttons=[
                     {"action": "message", "label": "🏆 자랑하기", "messageText": "자랑·랭킹"},
                     {"action": "message", "label": "🔄 새 게임 시작", "messageText": "새 게임"}
                 ]
             )
         else:
+            ev_id = (getattr(run, "round_event", None) or {}).get("event_id")
+            is_new_ev, new_titles = (await CollectionService.register_event(db, user.id, ev_id)) if ev_id else (False, [])
+            ach_titles = await AchievementService.on_round_clear(db, user.id, run, cleared_round, False, target_gold)
+            new_titles.extend(ach_titles)
+            await db.commit()
+
             next_target_gold = GameEngine.get_target_gold_for_round(run.round)
             desc = (
                 f"{msg}\n"
                 f"• 새로운 목표: {next_target_gold:,}G\n"
                 f"• 현재 소지금: {run.gold:,}G"
             )
+            if is_new_ev:
+                desc += "\n🆕 NEW! 새로운 라운드 이벤트 도감 등록!"
+            if new_titles:
+                desc += f"\n🏅 칭호 해금: {', '.join(new_titles)}"
+            default_buttons = [
+                {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
+                {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"}
+            ]
+            desc, buttons = _append_round_event_ui(desc, default_buttons, run)
             return KakaoResponseBuilder.basic_card(
                 title=f"📦 R{run.round} 라운드 진입",
                 description=desc,
-                buttons=[
-                    {"action": "message", "label": "🗡️ 내 검 보기", "messageText": "내 검 보기"},
-                    {"action": "message", "label": "⚔️ 강화하기", "messageText": "강화하기"}
-                ]
+                buttons=buttons
             )
 
 @router.post("/rules")
