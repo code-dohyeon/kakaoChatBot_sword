@@ -11,6 +11,16 @@ DEFAULT_QUICK_REPLIES = [
 
 class KakaoResponseBuilder:
     @staticmethod
+    def no_active_game() -> Dict[str, Any]:
+        return KakaoResponseBuilder.basic_card(
+            title="⚔️ 진행 중인 게임이 없습니다",
+            description="아래 [새 게임] 버튼을 눌러 대장간 모험을 시작해보세요!",
+            buttons=[
+                {"action": "message", "label": "🔄 새 게임 시작", "messageText": "새 게임"}
+            ]
+        )
+
+    @staticmethod
     def simple_text(text: str, quick_replies: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         replies = quick_replies if quick_replies is not None else DEFAULT_QUICK_REPLIES
         return {

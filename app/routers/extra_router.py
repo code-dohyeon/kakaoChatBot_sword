@@ -30,7 +30,7 @@ async def sell_or_transform_sword(payload: Dict[str, Any] = Body(...), db: Async
         run = await RunService.get_active_run(db, user.id)
 
         if not run or run.status != "playing":
-            return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다.")
+            return KakaoResponseBuilder.no_active_game()
 
         if not run.swords:
             return KakaoResponseBuilder.simple_text("판매하거나 변환할 검이 없습니다.")
@@ -134,7 +134,7 @@ async def transform_menu(payload: Dict[str, Any] = Body(...), db: AsyncSession =
     run = await RunService.get_active_run(db, user.id)
 
     if not run or run.status != "playing":
-        return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다. [새 게임]을 눌러 시작해주세요.")
+        return KakaoResponseBuilder.no_active_game()
 
     if not run.swords:
         return KakaoResponseBuilder.basic_card(
@@ -200,7 +200,7 @@ async def view_shop(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depe
     run = await RunService.get_active_run(db, user.id)
 
     if not run or run.status != "playing":
-        return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다. [새 게임]을 눌러 시작해주세요.")
+        return KakaoResponseBuilder.no_active_game()
 
     # 일반 상점 / 유물 상점 선택 화면
     if utterance not in ["일반 상점", "일반상점", "골드 상점", "골드상점"]:
@@ -267,7 +267,7 @@ async def buy_item(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depen
         run = await RunService.get_active_run(db, user.id)
 
         if not run or run.status != "playing":
-            return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다.")
+            return KakaoResponseBuilder.no_active_game()
 
         # 파싱: "아이템구매 sword_normal" 등
         item_id = utterance.replace("아이템구매", "").strip()
@@ -373,7 +373,7 @@ async def view_relics(payload: Dict[str, Any] = Body(...), db: AsyncSession = De
     run = await RunService.get_active_run(db, user.id)
 
     if not run or run.status != "playing":
-        return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다.")
+        return KakaoResponseBuilder.no_active_game()
 
     utterance = get_utterance(payload)
     page = 2 if "2" in utterance else 1
@@ -445,7 +445,7 @@ async def buy_relic(payload: Dict[str, Any] = Body(...), db: AsyncSession = Depe
         run = await RunService.get_active_run(db, user.id)
 
         if not run or run.status != "playing":
-            return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다.")
+            return KakaoResponseBuilder.no_active_game()
 
         relic_id = utterance.replace("유물구매", "").strip()
         relic = config.relics.get(relic_id)
@@ -810,7 +810,7 @@ async def handle_event_choice(payload: Dict[str, Any] = Body(...), db: AsyncSess
         run = await RunService.get_active_run(db, user.id)
 
         if not run or run.status != "playing":
-            return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다.")
+            return KakaoResponseBuilder.no_active_game()
 
         ev_state = dict(getattr(run, "round_event", None) or {})
         ev_id = ev_state.get("event_id")

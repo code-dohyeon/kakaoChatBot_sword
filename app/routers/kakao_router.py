@@ -86,7 +86,7 @@ async def view_my_swords(payload: Dict[str, Any] = Body(...), db: AsyncSession =
     run = await RunService.get_active_run(db, user.id)
 
     if not run or run.status != "playing":
-        return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다. [새 게임]을 눌러 시작해주세요.")
+        return KakaoResponseBuilder.no_active_game()
 
     if not run.swords:
         target_gold = GameEngine.get_target_gold_for_round(run.round)
@@ -185,7 +185,7 @@ async def enhance_sword(payload: Dict[str, Any] = Body(...), db: AsyncSession = 
         run = await RunService.get_active_run(db, user.id)
 
         if not run or run.status != "playing":
-            return KakaoResponseBuilder.simple_text("진행 중인 게임이 없습니다. [새 게임]을 눌러 시작해주세요.")
+            return KakaoResponseBuilder.no_active_game()
 
         # 보유 검 0개 예외 처리
         if not run.swords:
